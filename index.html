@@ -7,6 +7,39 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes float-up {
+      0% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-100px); }
+    }
+    .float-number {
+      animation: float-up 1s ease-out forwards;
+      pointer-events: none;
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.8); opacity: 0.8; }
+      50% { transform: scale(1.2); opacity: 0.3; }
+      100% { transform: scale(0.8); opacity: 0.8; }
+    }
+    .pulse-ring {
+      animation: pulse-ring 2s infinite;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+    .shake {
+      animation: shake 0.3s ease-in-out;
+    }
+    .achievement-popup {
+      animation: slideInRight 0.5s ease-out;
+    }
+    @keyframes slideInRight {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+  </style>
 </head>
 <body class="bg-gradient-to-br from-orange-100 via-yellow-50 to-red-100">
   <div id="app">
@@ -18,9 +51,11 @@
     </div>
   </div>
 
+  <!-- Контейнер для достижений -->
+  <div id="achievements-container" class="fixed top-20 right-4 z-50 space-y-2"></div>
+
   <script>
     (function() {
-      // Проверяем, запущено ли приложение в Telegram
       const isTelegram = window.Telegram && window.Telegram.WebApp;
       let tg = null;
       
@@ -28,57 +63,89 @@
         tg = window.Telegram.WebApp;
         tg.expand();
         tg.enableClosingConfirmation();
-      } else {
-        console.log('Запущено вне Telegram - режим браузера');
       }
 
-      // ВАЖНО: Замени эти данные на свои из Supabase
-      const SUPABASE_URL = 'https://cvxfavzuoneeaueqibie.supabase.co';
-      const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2eGZhdnp1b25lZWF1ZXFpYmllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5MTM0NzEsImV4cCI6MjA4NDQ4OTQ3MX0.23bcNd_X_uW6vXsF3TRkdalvdwWFg3Oz9A_F8_nt3go';
-      
+      const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+      const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
       let supabaseClient = null;
       
-      // Инициализируем Supabase только если настроен
       if (SUPABASE_URL !== 'YOUR_SUPABASE_URL' && window.supabase) {
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       }
 
-      // Получаем ID пользователя
       const userId = isTelegram && tg.initDataUnsafe?.user?.id 
         ? tg.initDataUnsafe.user.id 
-        : Math.floor(Math.random() * 1000000); // Случайный ID для браузера
+        : Math.floor(Math.random() * 1000000);
 
-      // Состояние игры
       const gameState = {
         shawarmas: 0,
+        totalShawarmas: 0,
         perClick: 1,
         perSecond: 0,
+        clickCount: 0,
+        prestigeLevel: 0,
+        prestigeBonus: 1,
         buildings: [
-          { id: 1, name: 'Стажёр', cost: 15, owned: 0, production: 0.1, emoji: '👨‍🍳' },
-          { id: 2, name: 'Шаурмист', cost: 100, owned: 0, production: 1, emoji: '🧑‍🍳' },
-          { id: 3, name: 'Киоск', cost: 500, owned: 0, production: 5, emoji: '🏪' },
-          { id: 4, name: 'Кафе', cost: 3000, owned: 0, production: 20, emoji: '🍽️' },
-          { id: 5, name: 'Ресторан', cost: 10000, owned: 0, production: 100, emoji: '🏢' },
-          { id: 6, name: 'Сеть', cost: 50000, owned: 0, production: 500, emoji: '🌐' },
+          { id: 1, name: 'Стажёр', cost: 15, owned: 0, production: 0.1, emoji: '👨‍🍳', desc: 'Учится крутить шаурму' },
+          { id: 2, name: 'Шаурмист', cost: 100, owned: 0, production: 1, emoji: '🧑‍🍳', desc: 'Опытный мастер' },
+          { id: 3, name: 'Киоск', cost: 500, owned: 0, production: 5, emoji: '🏪', desc: 'Маленькая точка продаж' },
+          { id: 4, name: 'Тележка', cost: 2000, owned: 0, production: 15, emoji: '🛒', desc: 'Мобильная торговля' },
+          { id: 5, name: 'Кафе', cost: 5000, owned: 0, production: 40, emoji: '🍽️', desc: 'Уютное заведение' },
+          { id: 6, name: 'Фудтрак', cost: 15000, owned: 0, production: 100, emoji: '🚚', desc: 'Шаурма на колёсах' },
+          { id: 7, name: 'Ресторан', cost: 40000, owned: 0, production: 250, emoji: '🏢', desc: 'Престижное место' },
+          { id: 8, name: 'Сеть', cost: 100000, owned: 0, production: 600, emoji: '🌐', desc: 'Франшиза по городу' },
+          { id: 9, name: 'Фабрика', cost: 500000, owned: 0, production: 2000, emoji: '🏭', desc: 'Массовое производство' },
+          { id: 10, name: 'Корпорация', cost: 2000000, owned: 0, production: 8000, emoji: '🏛️', desc: 'Международный бренд' },
+          { id: 11, name: 'Мегакорп', cost: 10000000, owned: 0, production: 30000, emoji: '🌍', desc: 'Мировое господство' },
+          { id: 12, name: 'Космостанция', cost: 50000000, owned: 0, production: 100000, emoji: '🛸', desc: 'Шаурма в космосе!' },
         ],
         upgrades: [
-          { id: 1, name: 'Острый соус', cost: 50, purchased: false, clickBonus: 1 },
-          { id: 2, name: 'Свежие овощи', cost: 200, purchased: false, clickBonus: 2 },
-          { id: 3, name: 'Премиум мясо', cost: 1000, purchased: false, clickBonus: 5 },
-        ]
+          { id: 1, name: 'Острый соус', cost: 50, purchased: false, clickBonus: 1, type: 'click', emoji: '🌶️' },
+          { id: 2, name: 'Свежие овощи', cost: 200, purchased: false, clickBonus: 2, type: 'click', emoji: '🥬' },
+          { id: 3, name: 'Премиум мясо', cost: 1000, purchased: false, clickBonus: 5, type: 'click', emoji: '🥩' },
+          { id: 4, name: 'Секретная приправа', cost: 5000, purchased: false, clickBonus: 10, type: 'click', emoji: '✨' },
+          { id: 5, name: 'Золотой лаваш', cost: 25000, purchased: false, clickBonus: 25, type: 'click', emoji: '🏆' },
+          
+          { id: 6, name: 'Быстрые руки', cost: 500, purchased: false, productionMultiplier: 1.5, type: 'production', emoji: '⚡' },
+          { id: 7, name: 'Автоматизация', cost: 3000, purchased: false, productionMultiplier: 2, type: 'production', emoji: '🤖' },
+          { id: 8, name: 'Турборежим', cost: 15000, purchased: false, productionMultiplier: 2.5, type: 'production', emoji: '🚀' },
+          { id: 9, name: 'Квантовая печь', cost: 75000, purchased: false, productionMultiplier: 3, type: 'production', emoji: '⚛️' },
+          { id: 10, name: 'Временной ускоритель', cost: 500000, purchased: false, productionMultiplier: 5, type: 'production', emoji: '⏰' },
+          
+          { id: 11, name: 'Дешёвая аренда', cost: 2000, purchased: false, buildingDiscount: 0.9, type: 'discount', emoji: '💰' },
+          { id: 12, name: 'Оптовые закупки', cost: 10000, purchased: false, buildingDiscount: 0.85, type: 'discount', emoji: '📦' },
+          { id: 13, name: 'Связи в мэрии', cost: 50000, purchased: false, buildingDiscount: 0.8, type: 'discount', emoji: '🏛️' },
+        ],
+        achievements: [
+          { id: 1, name: 'Первые шаги', desc: 'Создай 10 шаурмы', target: 10, type: 'total', unlocked: false, reward: 50 },
+          { id: 2, name: 'Любитель', desc: 'Создай 100 шаурмы', target: 100, type: 'total', unlocked: false, reward: 200 },
+          { id: 3, name: 'Мастер', desc: 'Создай 1000 шаурмы', target: 1000, type: 'total', unlocked: false, reward: 1000 },
+          { id: 4, name: 'Магнат', desc: 'Создай 10000 шаурмы', target: 10000, type: 'total', unlocked: false, reward: 5000 },
+          { id: 5, name: 'Легенда', desc: 'Создай 100000 шаурмы', target: 100000, type: 'total', unlocked: false, reward: 25000 },
+          
+          { id: 6, name: 'Кликер', desc: 'Кликни 100 раз', target: 100, type: 'clicks', unlocked: false, reward: 100 },
+          { id: 7, name: 'Безумный кликер', desc: 'Кликни 1000 раз', target: 1000, type: 'clicks', unlocked: false, reward: 500 },
+          { id: 8, name: 'Бог кликов', desc: 'Кликни 10000 раз', target: 10000, type: 'clicks', unlocked: false, reward: 2500 },
+          
+          { id: 9, name: 'Предприниматель', desc: 'Купи 10 зданий', target: 10, type: 'buildings', unlocked: false, reward: 300 },
+          { id: 10, name: 'Империя', desc: 'Купи 50 зданий', target: 50, type: 'buildings', unlocked: false, reward: 1500 },
+          { id: 11, name: 'Монополист', desc: 'Купи 100 зданий', target: 100, type: 'buildings', unlocked: false, reward: 5000 },
+        ],
+        currentTab: 'buildings'
       };
 
-      // Загрузка данных из базы
       async function loadGameData() {
         try {
-          // Проверяем localStorage
           const saved = localStorage.getItem('shawarma_game_' + userId);
           if (saved) {
             const data = JSON.parse(saved);
             gameState.shawarmas = data.shawarmas || 0;
+            gameState.totalShawarmas = data.totalShawarmas || 0;
             gameState.perClick = data.perClick || 1;
+            gameState.clickCount = data.clickCount || 0;
+            gameState.prestigeLevel = data.prestigeLevel || 0;
+            gameState.prestigeBonus = data.prestigeBonus || 1;
             
-            // Загружаем здания
             if (data.buildings) {
               data.buildings.forEach(savedBuilding => {
                 const building = gameState.buildings.find(b => b.id === savedBuilding.id);
@@ -89,62 +156,17 @@
               });
             }
             
-            // Загружаем улучшения
             if (data.upgrades) {
               data.upgrades.forEach(savedUpgrade => {
                 const upgrade = gameState.upgrades.find(u => u.id === savedUpgrade.id);
-                if (upgrade) {
-                  upgrade.purchased = savedUpgrade.purchased;
-                }
-              });
-            }
-          }
-
-          // Если есть Supabase, пытаемся загрузить оттуда
-          if (supabaseClient) {
-            const { data: user, error: userError } = await supabaseClient
-              .from('users')
-              .select('*')
-              .eq('id', userId)
-              .single();
-
-            if (userError && userError.code === 'PGRST116') {
-              // Пользователь не найден, создаём нового
-              await supabaseClient.from('users').insert([{
-                id: userId,
-                username: isTelegram ? (tg.initDataUnsafe?.user?.username || 'player') : 'browser_player',
-                first_name: isTelegram ? (tg.initDataUnsafe?.user?.first_name || 'Player') : 'Player',
-                shawarmas: gameState.shawarmas,
-                per_click: gameState.perClick
-              }]);
-            } else if (user) {
-              gameState.shawarmas = parseFloat(user.shawarmas);
-              gameState.perClick = user.per_click;
-            }
-
-            // Загружаем здания
-            const { data: buildings } = await supabaseClient
-              .from('user_buildings')
-              .select('*')
-              .eq('user_id', userId);
-
-            if (buildings) {
-              buildings.forEach(b => {
-                const building = gameState.buildings.find(gb => gb.id === b.building_id);
-                if (building) building.owned = b.owned;
+                if (upgrade) upgrade.purchased = savedUpgrade.purchased;
               });
             }
 
-            // Загружаем улучшения
-            const { data: upgrades } = await supabaseClient
-              .from('user_upgrades')
-              .select('*')
-              .eq('user_id', userId);
-
-            if (upgrades) {
-              upgrades.forEach(u => {
-                const upgrade = gameState.upgrades.find(gu => gu.id === u.upgrade_id);
-                if (upgrade) upgrade.purchased = u.purchased;
+            if (data.achievements) {
+              data.achievements.forEach(savedAch => {
+                const achievement = gameState.achievements.find(a => a.id === savedAch.id);
+                if (achievement) achievement.unlocked = savedAch.unlocked;
               });
             }
           }
@@ -158,72 +180,124 @@
         }
       }
 
-      // Сохранение данных
       async function saveGameData() {
         try {
-          // Сохраняем локально
           const saveData = {
             shawarmas: gameState.shawarmas,
+            totalShawarmas: gameState.totalShawarmas,
             perClick: gameState.perClick,
+            clickCount: gameState.clickCount,
+            prestigeLevel: gameState.prestigeLevel,
+            prestigeBonus: gameState.prestigeBonus,
             buildings: gameState.buildings.map(b => ({ id: b.id, owned: b.owned, cost: b.cost })),
-            upgrades: gameState.upgrades.map(u => ({ id: u.id, purchased: u.purchased }))
+            upgrades: gameState.upgrades.map(u => ({ id: u.id, purchased: u.purchased })),
+            achievements: gameState.achievements.map(a => ({ id: a.id, unlocked: a.unlocked }))
           };
           localStorage.setItem('shawarma_game_' + userId, JSON.stringify(saveData));
-
-          // Сохраняем в Supabase если настроен
-          if (supabaseClient) {
-            await supabaseClient
-              .from('users')
-              .update({
-                shawarmas: gameState.shawarmas,
-                per_click: gameState.perClick,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', userId);
-          }
         } catch (error) {
           console.error('Ошибка сохранения:', error);
         }
       }
 
-      // Расчёт производства
       function calculateProduction() {
-        gameState.perSecond = gameState.buildings.reduce((sum, b) => 
-          sum + (b.owned * b.production), 0
-        );
+        let baseProduction = gameState.buildings.reduce((sum, b) => sum + (b.owned * b.production), 0);
+        
+        const productionMultiplier = gameState.upgrades
+          .filter(u => u.purchased && u.type === 'production')
+          .reduce((mult, u) => mult * u.productionMultiplier, 1);
+        
+        gameState.perSecond = baseProduction * productionMultiplier * gameState.prestigeBonus;
+        
         gameState.perClick = 1 + gameState.upgrades
-          .filter(u => u.purchased)
+          .filter(u => u.purchased && u.type === 'click')
           .reduce((sum, u) => sum + u.clickBonus, 0);
+        
+        gameState.perClick *= gameState.prestigeBonus;
       }
 
-      // Клик по шаурме
-      function handleClick() {
-        gameState.shawarmas += gameState.perClick;
+      function checkAchievements() {
+        const totalBuildings = gameState.buildings.reduce((sum, b) => sum + b.owned, 0);
         
-        // Вибрация в Telegram
+        gameState.achievements.forEach(ach => {
+          if (ach.unlocked) return;
+          
+          let progress = 0;
+          if (ach.type === 'total') progress = gameState.totalShawarmas;
+          if (ach.type === 'clicks') progress = gameState.clickCount;
+          if (ach.type === 'buildings') progress = totalBuildings;
+          
+          if (progress >= ach.target) {
+            ach.unlocked = true;
+            gameState.shawarmas += ach.reward;
+            showAchievement(ach);
+          }
+        });
+      }
+
+      function showAchievement(ach) {
+        const container = document.getElementById('achievements-container');
+        const div = document.createElement('div');
+        div.className = 'achievement-popup bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-4 rounded-lg shadow-2xl max-w-xs';
+        div.innerHTML = `
+          <div class="font-bold text-lg">🏆 Достижение!</div>
+          <div class="font-semibold">${ach.name}</div>
+          <div class="text-sm opacity-90">${ach.desc}</div>
+          <div class="text-sm font-bold mt-1">+${ach.reward} 🌯</div>
+        `;
+        container.appendChild(div);
+        
+        setTimeout(() => {
+          div.style.opacity = '0';
+          div.style.transition = 'opacity 0.5s';
+          setTimeout(() => div.remove(), 500);
+        }, 3000);
+      }
+
+      function showFloatingNumber(x, y, value) {
+        const div = document.createElement('div');
+        div.className = 'float-number fixed text-2xl font-bold text-orange-600 z-50';
+        div.textContent = '+' + Math.floor(value);
+        div.style.left = x + 'px';
+        div.style.top = y + 'px';
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 1000);
+      }
+
+      function handleClick(event) {
+        gameState.shawarmas += gameState.perClick;
+        gameState.totalShawarmas += gameState.perClick;
+        gameState.clickCount++;
+        
+        const shawarmaBtn = document.getElementById('shawarma-btn');
+        if (shawarmaBtn) {
+          shawarmaBtn.classList.add('shake');
+          setTimeout(() => shawarmaBtn.classList.remove('shake'), 300);
+        }
+        
+        showFloatingNumber(event.clientX, event.clientY, gameState.perClick);
+        
         if (isTelegram && tg.HapticFeedback) {
           tg.HapticFeedback.impactOccurred('light');
         }
         
+        checkAchievements();
         render();
       }
 
-      // Покупка здания
       async function buyBuilding(buildingId) {
         const building = gameState.buildings.find(b => b.id === buildingId);
-        if (gameState.shawarmas >= building.cost) {
-          gameState.shawarmas -= building.cost;
+        let finalCost = building.cost;
+        
+        const discount = gameState.upgrades
+          .filter(u => u.purchased && u.type === 'discount')
+          .reduce((disc, u) => disc * u.buildingDiscount, 1);
+        
+        finalCost = Math.floor(finalCost * discount);
+        
+        if (gameState.shawarmas >= finalCost) {
+          gameState.shawarmas -= finalCost;
           building.owned++;
           building.cost = Math.floor(building.cost * 1.15);
-          
-          // Сохраняем в базу Supabase
-          if (supabaseClient) {
-            await supabaseClient.from('user_buildings').upsert({
-              user_id: userId,
-              building_id: buildingId,
-              owned: building.owned
-            }, { onConflict: 'user_id,building_id' });
-          }
           
           calculateProduction();
           await saveGameData();
@@ -232,25 +306,17 @@
             tg.HapticFeedback.notificationOccurred('success');
           }
           
+          checkAchievements();
           render();
         }
       }
 
-      // Покупка улучшения
       async function buyUpgrade(upgradeId) {
         const upgrade = gameState.upgrades.find(u => u.id === upgradeId);
         if (gameState.shawarmas >= upgrade.cost && !upgrade.purchased) {
           gameState.shawarmas -= upgrade.cost;
           upgrade.purchased = true;
           
-          if (supabaseClient) {
-            await supabaseClient.from('user_upgrades').upsert({
-              user_id: userId,
-              upgrade_id: upgradeId,
-              purchased: true
-            }, { onConflict: 'user_id,upgrade_id' });
-          }
-          
           calculateProduction();
           await saveGameData();
           
@@ -262,98 +328,73 @@
         }
       }
 
-      // Отрисовка интерфейса
+      function formatNumber(num) {
+        if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
+        if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+        if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+        if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+        return Math.floor(num).toString();
+      }
+
       function render() {
+        const unlockedAchievements = gameState.achievements.filter(a => a.unlocked).length;
+        
         document.getElementById('app').innerHTML = `
           <div class="min-h-screen pb-20">
             <!-- Шапка -->
-            <div class="bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 shadow-lg sticky top-0 z-10">
+            <div class="bg-gradient-to-r from-orange-500 via-red-500 to-orange-600 text-white p-4 shadow-lg sticky top-0 z-10">
               <h1 class="text-3xl font-bold text-center mb-2">🌯 Империя Шаурмы</h1>
               ${!isTelegram ? '<div class="text-center text-xs opacity-75 mb-2">🌐 Режим браузера</div>' : ''}
-              <div class="flex justify-around items-center">
-                <div class="text-center">
-                  <div class="text-2xl font-bold">${Math.floor(gameState.shawarmas)}</div>
+              <div class="grid grid-cols-3 gap-2 text-center">
+                <div class="bg-white bg-opacity-20 rounded-lg p-2">
+                  <div class="text-2xl font-bold">${formatNumber(gameState.shawarmas)}</div>
                   <div class="text-xs opacity-90">Шаурмы</div>
                 </div>
-                <div class="text-center">
-                  <div class="text-lg font-bold">+${gameState.perClick}</div>
+                <div class="bg-white bg-opacity-20 rounded-lg p-2">
+                  <div class="text-lg font-bold">+${formatNumber(gameState.perClick)}</div>
                   <div class="text-xs opacity-90">За клик</div>
                 </div>
-                <div class="text-center">
-                  <div class="text-lg font-bold">+${gameState.perSecond.toFixed(1)}/сек</div>
-                  <div class="text-xs opacity-90">Производство</div>
+                <div class="bg-white bg-opacity-20 rounded-lg p-2">
+                  <div class="text-lg font-bold">+${formatNumber(gameState.perSecond)}/с</div>
+                  <div class="text-xs opacity-90">В секунду</div>
                 </div>
               </div>
+              ${gameState.prestigeLevel > 0 ? `<div class="text-center mt-2 text-sm">⭐ Престиж: ${gameState.prestigeLevel} (x${gameState.prestigeBonus.toFixed(1)})</div>` : ''}
             </div>
 
             <div class="max-w-2xl mx-auto p-4 space-y-4">
               <!-- Кликер -->
-              <div class="bg-white rounded-2xl p-8 shadow-xl">
-                <div class="flex justify-center">
-                  <button onclick="handleClickGlobal()" class="text-9xl transform active:scale-95 transition-transform cursor-pointer select-none">
+              <div class="bg-white rounded-2xl p-8 shadow-xl relative overflow-hidden">
+                <div class="absolute inset-0 bg-orange-200 opacity-20 pulse-ring rounded-2xl"></div>
+                <div class="flex justify-center relative z-10">
+                  <button id="shawarma-btn" onclick="handleClickGlobal(event)" class="text-9xl transform hover:scale-105 active:scale-95 transition-transform cursor-pointer select-none">
                     🌯
                   </button>
                 </div>
-                <p class="text-center text-gray-600 mt-4">Нажми на шаурму!</p>
-              </div>
-
-              <!-- Улучшения -->
-              <div class="bg-white rounded-2xl p-4 shadow-xl">
-                <h2 class="text-xl font-bold mb-3">📈 Улучшения</h2>
-                <div class="space-y-2">
-                  ${gameState.upgrades.map(upgrade => `
-                    <button
-                      onclick="buyUpgradeGlobal(${upgrade.id})"
-                      ${upgrade.purchased || gameState.shawarmas < upgrade.cost ? 'disabled' : ''}
-                      class="w-full p-3 rounded-lg text-left transition-all ${
-                        upgrade.purchased
-                          ? 'bg-green-100 border-2 border-green-400 cursor-default'
-                          : gameState.shawarmas >= upgrade.cost
-                          ? 'bg-orange-50 hover:bg-orange-100 active:bg-orange-200 border-2 border-orange-300 cursor-pointer'
-                          : 'bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed'
-                      }"
-                    >
-                      <div class="flex justify-between items-center">
-                        <div>
-                          <div class="font-semibold">${upgrade.name}</div>
-                          <div class="text-sm text-gray-600">
-                            ${upgrade.purchased ? '✅ Куплено' : `+${upgrade.clickBonus} за клик`}
-                          </div>
-                        </div>
-                        ${!upgrade.purchased ? `<div class="text-orange-600 font-bold">${upgrade.cost} 🌯</div>` : ''}
-                      </div>
-                    </button>
-                  `).join('')}
+                <p class="text-center text-gray-600 mt-4 font-semibold">Нажми на шаурму!</p>
+                <div class="text-center text-sm text-gray-500 mt-2">
+                  Всего создано: ${formatNumber(gameState.totalShawarmas)} | Кликов: ${gameState.clickCount}
                 </div>
               </div>
 
-              <!-- Магазин -->
-              <div class="bg-white rounded-2xl p-4 shadow-xl">
-                <h2 class="text-xl font-bold mb-3">🏪 Магазин</h2>
-                <div class="space-y-2">
-                  ${gameState.buildings.map(building => `
-                    <button
-                      onclick="buyBuildingGlobal(${building.id})"
-                      ${gameState.shawarmas < building.cost ? 'disabled' : ''}
-                      class="w-full p-3 rounded-lg text-left transition-all ${
-                        gameState.shawarmas >= building.cost
-                          ? 'bg-orange-50 hover:bg-orange-100 active:bg-orange-200 border-2 border-orange-300 cursor-pointer'
-                          : 'bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed'
-                      }"
-                    >
-                      <div class="flex justify-between items-center">
-                        <div class="flex items-center gap-3">
-                          <div class="text-3xl">${building.emoji}</div>
-                          <div>
-                            <div class="font-semibold">${building.name}</div>
-                            <div class="text-sm text-gray-600">+${building.production}/сек</div>
-                            <div class="text-xs text-gray-500">Куплено: ${building.owned}</div>
-                          </div>
-                        </div>
-                        <div class="text-orange-600 font-bold">${building.cost} 🌯</div>
-                      </div>
-                    </button>
-                  `).join('')}
+              <!-- Табы -->
+              <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+                <div class="grid grid-cols-3 gap-0 border-b-2 border-gray-200">
+                  <button onclick="switchTab('buildings')" class="p-3 font-semibold transition-colors ${gameState.currentTab === 'buildings' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
+                    🏪 Магазин
+                  </button>
+                  <button onclick="switchTab('upgrades')" class="p-3 font-semibold transition-colors ${gameState.currentTab === 'upgrades' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
+                    ⚡ Улучшения
+                  </button>
+                  <button onclick="switchTab('achievements')" class="p-3 font-semibold transition-colors ${gameState.currentTab === 'achievements' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
+                    🏆 Награды ${unlockedAchievements > 0 ? `(${unlockedAchievements})` : ''}
+                  </button>
+                </div>
+
+                <div class="p-4">
+                  ${gameState.currentTab === 'buildings' ? renderBuildings() : ''}
+                  ${gameState.currentTab === 'upgrades' ? renderUpgrades() : ''}
+                  ${gameState.currentTab === 'achievements' ? renderAchievements() : ''}
                 </div>
               </div>
             </div>
@@ -361,23 +402,111 @@
         `;
       }
 
-      // Автопроизводство
-      setInterval(() => {
-        gameState.shawarmas += gameState.perSecond / 10;
-        render();
-      }, 100);
+      function renderBuildings() {
+        return `
+          <div class="space-y-2">
+            ${gameState.buildings.map(building => {
+              const discount = gameState.upgrades
+                .filter(u => u.purchased && u.type === 'discount')
+                .reduce((disc, u) => disc * u.buildingDiscount, 1);
+              const finalCost = Math.floor(building.cost * discount);
+              const canBuy = gameState.shawarmas >= finalCost;
+              
+              return `
+                <button
+                  onclick="buyBuildingGlobal(${building.id})"
+                  ${!canBuy ? 'disabled' : ''}
+                  class="w-full p-3 rounded-lg text-left transition-all ${
+                    canBuy
+                      ? 'bg-gradient-to-r from-orange-50 to-yellow-50 hover:from-orange-100 hover:to-yellow-100 border-2 border-orange-300 cursor-pointer shadow-sm hover:shadow-md'
+                      : 'bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed'
+                  }"
+                >
+                  <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-3 flex-1">
+                      <div class="text-4xl">${building.emoji}</div>
+                      <div class="flex-1">
+                        <div class="font-bold text-lg">${building.name}</div>
+                        <div class="text-xs text-gray-600">${building.desc}</div>
+                        <div class="text-sm text-gray-700 font-semibold mt-1">+${formatNumber(building.production)}/с</div>
+                        <div class="text-xs text-gray-500">Куплено: ${building.owned}</div>
+                      </div>
+                    </div>
+                    <div class="text-right">
+                      <div class="text-orange-600 font-bold text-lg">${formatNumber(finalCost)} 🌯</div>
+                      ${discount < 1 ? '<div class="text-xs text-green-600">-' + Math.floor((1 - discount) * 100) + '% скидка!</div>' : ''}
+                    </div>
+                  </div>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        `;
+      }
 
-      // Автосохранение каждые 5 секунд
-      setInterval(saveGameData, 5000);
+      function renderUpgrades() {
+        const clickUpgrades = gameState.upgrades.filter(u => u.type === 'click');
+        const productionUpgrades = gameState.upgrades.filter(u => u.type === 'production');
+        const discountUpgrades = gameState.upgrades.filter(u => u.type === 'discount');
+        
+        return `
+          <div class="space-y-4">
+            <div>
+              <h3 class="font-bold text-lg mb-2 text-orange-600">🖱️ Сила клика</h3>
+              <div class="space-y-2">
+                ${clickUpgrades.map(u => renderUpgradeButton(u)).join('')}
+              </div>
+            </div>
+            
+            <div>
+              <h3 class="font-bold text-lg mb-2 text-orange-600">⚙️ Производство</h3>
+              <div class="space-y-2">
+                ${productionUpgrades.map(u => renderUpgradeButton(u)).join('')}
+              </div>
+            </div>
+            
+            <div>
+              <h3 class="font-bold text-lg mb-2 text-orange-600">💰 Экономия</h3>
+              <div class="space-y-2">
+                ${discountUpgrades.map(u => renderUpgradeButton(u)).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+      }
 
-      // Глобальные функции для кнопок
-      window.handleClickGlobal = handleClick;
-      window.buyBuildingGlobal = buyBuilding;
-      window.buyUpgradeGlobal = buyUpgrade;
+      function renderUpgradeButton(upgrade) {
+        return `
+          <button
+            onclick="buyUpgradeGlobal(${upgrade.id})"
+            ${upgrade.purchased || gameState.shawarmas < upgrade.cost ? 'disabled' : ''}
+            class="w-full p-3 rounded-lg text-left transition-all ${
+              upgrade.purchased
+                ? 'bg-green-100 border-2 border-green-400 cursor-default'
+                : gameState.shawarmas >= upgrade.cost
+                ? 'bg-gradient-to-r from-orange-50 to-yellow-50 hover:from-orange-100 hover:to-yellow-100 border-2 border-orange-300 cursor-pointer shadow-sm hover:shadow-md'
+                : 'bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed'
+            }"
+          >
+            <div class="flex justify-between items-center">
+              <div class="flex items-center gap-3">
+                <div class="text-3xl">${upgrade.emoji}</div>
+                <div>
+                  <div class="font-semibold">${upgrade.name}</div>
+                  <div class="text-sm text-gray-600">
+                    ${upgrade.purchased ? '✅ Куплено' : 
+                      upgrade.type === 'click' ? `+${upgrade.clickBonus} за клик` :
+                      upgrade.type === 'production' ? `x${upgrade.productionMultiplier} производство` :
+                      `${Math.floor((1 - upgrade.buildingDiscount) * 100)}% скидка на здания`
+                    }
+                  </div>
+                </div>
+              </div>
+              ${!upgrade.purchased ? `<div class="text-orange-600 font-bold">${formatNumber(upgrade.cost)} 🌯</div>` : ''}
+            </div>
+          </button>
+        `;
+      }
 
-      // Запуск приложения
-      loadGameData();
-    })();
-  </script>
-</body>
-</html>
+      function renderAchievements() {
+        const totalBuildings = gameState
