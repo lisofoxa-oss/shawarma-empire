@@ -2,7 +2,8 @@
 
 const UI = {
   lastRenderTime: 0,
-  renderThrottle: 100, // Рендерим максимум раз в 100мс
+  renderThrottle: 500, // Рендерим раз в 500мс
+  isInitialized: false,
   
   // Форматирование чисел
   formatNumber(num) {
@@ -11,6 +12,27 @@ const UI = {
     if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
     if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
     return Math.floor(num).toString();
+  },
+  
+  // Обновить только счётчики (без перерисовки всего)
+  updateCounters() {
+    const state = Game.state;
+    
+    const shawarmasEl = document.getElementById('counter-shawarmas');
+    const perClickEl = document.getElementById('counter-perclick');
+    const perSecondEl = document.getElementById('counter-persecond');
+    
+    if (shawarmasEl) shawarmasEl.textContent = this.formatNumber(state.shawarmas);
+    if (perClickEl) perClickEl.textContent = '+' + this.formatNumber(state.perClick);
+    if (perSecondEl) perSecondEl.textContent = '+' + this.formatNumber(state.perSecond) + '/с';
+    
+    const totalEl = document.getElementById('counter-total');
+    const lifetimeEl = document.getElementById('counter-lifetime');
+    const clicksEl = document.getElementById('counter-clicks');
+    
+    if (totalEl) totalEl.textContent = this.formatNumber(state.totalShawarmas);
+    if (lifetimeEl) lifetimeEl.textContent = this.formatNumber(state.lifetimeShawarmas);
+    if (clicksEl) clicksEl.textContent = state.clickCount;
   },
   
   // Показать всплывающее число при клике
@@ -69,13 +91,15 @@ const UI = {
     }, 3000);
   },
   
-  // Основная отрисовка интерфейса (с throttling)
-  render() {
-    const now = Date.now();
-    if (now - this.lastRenderTime < this.renderThrottle) {
-      return; // Пропускаем рендеринг, если слишком рано
+  // Основная отрисовка интерфейса (только при смене таба или первой загрузке)
+  render(force = false) {
+    // Если уже инициализировано и не force - только обновляем счётчики
+    if (this.isInitialized && !force) {
+      this.updateCounters();
+      return;
     }
-    this.lastRenderTime = now;
+    
+    this.isInitialized = true;
     
     const state = Game.state;
     const unlockedAchievements = state.achievements.filter(a => a.unlocked).length;
@@ -84,7 +108,7 @@ const UI = {
     document.getElementById('app').innerHTML = `
       <div class="min-h-screen pb-20">
         <!-- Шапка -->
-        <div class="bg-gradient-to-r from-orange-500 via-red-500 to-orange-600 text-white p-4 shadow-lg sticky top-0 z-10">
+        <div class="bg-gradient-to-r from-orange-500 via-red-500 to-orange-600 text-white p-4 shadow-lg sticky top-0 z-50">
           <div class="flex justify-between items-center mb-2">
             <h1 class="text-3xl font-bold">🌯 Империя Шаурмы</h1>
             ${canPrestige ? '<button onclick="Game.openPrestigeModal()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg font-bold text-sm golden-shine">⭐ Престиж</button>' : ''}
@@ -92,15 +116,15 @@ const UI = {
           ${!Game.isTelegram ? '<div class="text-center text-xs opacity-75 mb-2">🌐 Режим браузера</div>' : ''}
           <div class="grid grid-cols-3 gap-2 text-center">
             <div class="bg-white bg-opacity-20 rounded-lg p-2">
-              <div class="text-2xl font-bold">${this.formatNumber(state.shawarmas)}</div>
+              <div id="counter-shawarmas" class="text-2xl font-bold">${this.formatNumber(state.shawarmas)}</div>
               <div class="text-xs opacity-90">Шаурмы</div>
             </div>
             <div class="bg-white bg-opacity-20 rounded-lg p-2">
-              <div class="text-lg font-bold">+${this.formatNumber(state.perClick)}</div>
+              <div id="counter-perclick" class="text-lg font-bold">+${this.formatNumber(state.perClick)}</div>
               <div class="text-xs opacity-90">За клик</div>
             </div>
             <div class="bg-white bg-opacity-20 rounded-lg p-2">
-              <div class="text-lg font-bold">+${this.formatNumber(state.perSecond)}/с</div>
+              <div id="counter-persecond" class="text-lg font-bold">+${this.formatNumber(state.perSecond)}/с</div>
               <div class="text-xs opacity-90">В секунду</div>
             </div>
           </div>
@@ -110,7 +134,6 @@ const UI = {
         <div class="max-w-2xl mx-auto p-4 space-y-4">
           <!-- Кликер -->
           <div class="bg-white rounded-2xl p-8 shadow-xl relative overflow-hidden">
-            <div class="absolute inset-0 bg-orange-200 opacity-20 pulse-ring rounded-2xl"></div>
             <div class="flex justify-center relative z-10">
               <button id="shawarma-btn" onclick="Game.handleClick(event)" class="text-9xl transform hover:scale-105 active:scale-95 transition-transform cursor-pointer select-none filter drop-shadow-2xl">
                 🌯
@@ -118,8 +141,8 @@ const UI = {
             </div>
             <p class="text-center text-gray-600 mt-4 font-semibold">Нажми на шаурму!</p>
             <div class="text-center text-sm text-gray-500 mt-2 space-y-1">
-              <div>Всего создано: ${this.formatNumber(state.totalShawarmas)}</div>
-              <div>За всё время: ${this.formatNumber(state.lifetimeShawarmas)} | Кликов: ${state.clickCount}</div>
+              <div>Всего создано: <span id="counter-total">${this.formatNumber(state.totalShawarmas)}</span></div>
+              <div>За всё время: <span id="counter-lifetime">${this.formatNumber(state.lifetimeShawarmas)}</span> | Кликов: <span id="counter-clicks">${state.clickCount}</span></div>
             </div>
           </div>
 
@@ -137,7 +160,7 @@ const UI = {
               </button>
             </div>
 
-            <div class="p-4 max-h-96 overflow-y-auto">
+            <div id="tab-content" class="p-4 max-h-96 overflow-y-auto">
               ${state.currentTab === 'buildings' ? this.renderBuildings() : ''}
               ${state.currentTab === 'upgrades' ? this.renderUpgrades() : ''}
               ${state.currentTab === 'achievements' ? this.renderAchievements() : ''}
@@ -146,6 +169,22 @@ const UI = {
         </div>
       </div>
     `;
+  },
+  
+  // Обновить контент таба (без перерисовки всего)
+  updateTabContent() {
+    const state = Game.state;
+    const tabContent = document.getElementById('tab-content');
+    
+    if (!tabContent) return;
+    
+    if (state.currentTab === 'buildings') {
+      tabContent.innerHTML = this.renderBuildings();
+    } else if (state.currentTab === 'upgrades') {
+      tabContent.innerHTML = this.renderUpgrades();
+    } else if (state.currentTab === 'achievements') {
+      tabContent.innerHTML = this.renderAchievements();
+    }
   },
   
   // Отрисовка магазина зданий
