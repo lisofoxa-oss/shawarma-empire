@@ -1,0 +1,137 @@
+/* Анимация летящих чисел */
+@keyframes float-up {
+  0% { 
+    opacity: 1; 
+    transform: translateY(0) scale(1); 
+  }
+  100% { 
+    opacity: 0; 
+    transform: translateY(-100px) scale(1.5); 
+  }
+}
+
+.float-number {
+  animation: float-up 1s ease-out forwards;
+  pointer-events: none;
+}
+
+/* Пульсирующее кольцо вокруг кликера */
+@keyframes pulse-ring {
+  0% { 
+    transform: scale(0.8); 
+    opacity: 0.8; 
+  }
+  50% { 
+    transform: scale(1.2); 
+    opacity: 0.3; 
+  }
+  100% { 
+    transform: scale(0.8); 
+    opacity: 0.8; 
+  }
+}
+
+.pulse-ring {
+  animation: pulse-ring 2s infinite;
+}
+
+/* Тряска шаурмы при клике */
+@keyframes shake {
+  0%, 100% { 
+    transform: translateX(0) rotate(0deg); 
+  }
+  25% { 
+    transform: translateX(-5px) rotate(-5deg); 
+  }
+  75% { 
+    transform: translateX(5px) rotate(5deg); 
+  }
+}
+
+.shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+/* Всплывающие уведомления */
+@keyframes slideInRight {
+  from { 
+    transform: translateX(100%); 
+    opacity: 0; 
+  }
+  to { 
+    transform: translateX(0); 
+    opacity: 1; 
+  }
+}
+
+.achievement-popup {
+  animation: slideInRight 0.5s ease-out;
+}
+
+/* Анимация частиц */
+@keyframes particle-burst {
+  0% { 
+    opacity: 1; 
+    transform: translate(0, 0) scale(1); 
+  }
+  100% { 
+    opacity: 0; 
+    transform: translate(var(--tx), var(--ty)) scale(0); 
+  }
+}
+
+.particle {
+  animation: particle-burst 0.8s ease-out forwards;
+}
+
+/* Золотое свечение для кнопки престижа */
+@keyframes golden-shine {
+  0% { 
+    background-position: -200% center; 
+  }
+  100% { 
+    background-position: 200% center; 
+  }
+}
+
+.golden-shine {
+  background: linear-gradient(90deg, transparent, rgba(255,215,0,0.5), transparent);
+  background-size: 200% 100%;
+  animation: golden-shine 2s infinite;
+}
+
+/* Появление модальных окон */
+@keyframes bounce-in {
+  0% { 
+    transform: scale(0); 
+  }
+  50% { 
+    transform: scale(1.1); 
+  }
+  100% { 
+    transform: scale(1); 
+  }
+}
+
+.bounce-in {
+  animation: bounce-in 0.5s ease-out;
+}
+
+/* Скроллбар для списков */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #fb923c;
+  border-radius: 10px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #f97316;
+}
