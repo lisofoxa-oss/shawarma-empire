@@ -31,6 +31,7 @@ const Game = {
       this.tg = window.Telegram.WebApp;
       this.tg.expand();
       this.tg.enableClosingConfirmation();
+      this.tg.ready();
     }
     
     // Получаем ID пользователя
@@ -50,8 +51,49 @@ const Game = {
     // Загружаем сохранение
     this.loadGame();
     
+    // Настраиваем делегирование событий
+    this.setupEventDelegation();
+    
     // Запускаем игровые циклы
     this.startGameLoops();
+  },
+  
+  // Настройка делегирования событий (чтобы onclick работали после обновления)
+  setupEventDelegation() {
+    document.addEventListener('click', (e) => {
+      const target = e.target.closest('[data-action]');
+      if (!target) return;
+      
+      const action = target.dataset.action;
+      const id = parseInt(target.dataset.id);
+      
+      switch(action) {
+        case 'buy-building':
+          this.buyBuilding(id);
+          break;
+        case 'buy-upgrade':
+          this.buyUpgrade(id);
+          break;
+        case 'switch-tab':
+          this.switchTab(target.dataset.tab);
+          break;
+        case 'click-shawarma':
+          this.handleClick(e);
+          break;
+        case 'open-prestige':
+          this.openPrestigeModal();
+          break;
+        case 'close-prestige':
+          this.closePrestigeModal();
+          break;
+        case 'confirm-prestige':
+          this.confirmPrestige();
+          break;
+        case 'claim-daily':
+          this.claimDailyReward();
+          break;
+      }
+    });
   },
   
   // Загрузка игры
