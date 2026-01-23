@@ -267,7 +267,8 @@ const Game = {
       }
       
       this.checkAchievements();
-      UI.render();
+      UI.updateTabContent(); // Обновляем только контент таба
+      UI.updateCounters();
     }
   },
   
@@ -288,7 +289,8 @@ const Game = {
         this.tg.HapticFeedback.notificationOccurred('success');
       }
       
-      UI.render();
+      UI.updateTabContent(); // Обновляем только контент таба
+      UI.updateCounters();
     }
   },
   
@@ -378,7 +380,7 @@ const Game = {
   // Смена вкладки
   switchTab(tab) {
     this.state.currentTab = tab;
-    UI.render();
+    UI.render(true); // force полная перерисовка при смене таба
   },
   
   // Запуск игровых циклов
@@ -390,9 +392,9 @@ const Game = {
       this.state.lifetimeShawarmas += this.state.perSecond / 10;
     }, 100);
     
-    // Рендеринг раз в секунду (вместо каждые 100мс)
+    // Обновление счётчиков раз в секунду
     setInterval(() => {
-      UI.render();
+      UI.updateCounters();
     }, 1000);
     
     // Автосохранение каждые 5 секунд
