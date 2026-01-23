@@ -15,26 +15,6 @@
   pointer-events: none;
 }
 
-/* Пульсирующее кольцо вокруг кликера */
-@keyframes pulse-ring {
-  0% { 
-    transform: scale(0.8); 
-    opacity: 0.8; 
-  }
-  50% { 
-    transform: scale(1.2); 
-    opacity: 0.3; 
-  }
-  100% { 
-    transform: scale(0.8); 
-    opacity: 0.8; 
-  }
-}
-
-.pulse-ring {
-  animation: pulse-ring 2s infinite;
-}
-
 /* Тряска шаурмы при клике */
 @keyframes shake {
   0%, 100% { 
@@ -134,4 +114,20 @@
 
 .overflow-y-auto::-webkit-scrollbar-thumb:hover {
   background: #f97316;
+}
+
+/* Фиксация позиций элементов */
+.sticky {
+  position: sticky !important;
+}
+
+/* Убираем лишние z-index конфликты */
+#shawarma-btn {
+  position: relative;
+  z-index: 1;
+}
+
+/* Плавный скролл */
+html {
+  scroll-behavior: smooth;
 }
