@@ -111,7 +111,7 @@ const UI = {
         <div class="bg-gradient-to-r from-orange-500 via-red-500 to-orange-600 text-white p-4 shadow-lg sticky top-0 z-50">
           <div class="flex justify-between items-center mb-2">
             <h1 class="text-3xl font-bold">🌯 Империя Шаурмы</h1>
-            ${canPrestige ? '<button onclick="Game.openPrestigeModal()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg font-bold text-sm golden-shine">⭐ Престиж</button>' : ''}
+            ${canPrestige ? '<button data-action="open-prestige" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg font-bold text-sm golden-shine">⭐ Престиж</button>' : ''}
           </div>
           ${!Game.isTelegram ? '<div class="text-center text-xs opacity-75 mb-2">🌐 Режим браузера</div>' : ''}
           <div class="grid grid-cols-3 gap-2 text-center">
@@ -135,7 +135,7 @@ const UI = {
           <!-- Кликер -->
           <div class="bg-white rounded-2xl p-8 shadow-xl relative overflow-hidden">
             <div class="flex justify-center relative z-10">
-              <button id="shawarma-btn" onclick="Game.handleClick(event)" class="text-9xl transform hover:scale-105 active:scale-95 transition-transform cursor-pointer select-none filter drop-shadow-2xl">
+              <button id="shawarma-btn" data-action="click-shawarma" class="text-9xl transform hover:scale-105 active:scale-95 transition-transform cursor-pointer select-none filter drop-shadow-2xl">
                 🌯
               </button>
             </div>
@@ -149,13 +149,13 @@ const UI = {
           <!-- Табы и контент -->
           <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
             <div class="grid grid-cols-3 gap-0 border-b-2 border-gray-200">
-              <button onclick="Game.switchTab('buildings')" class="p-3 font-semibold transition-all ${state.currentTab === 'buildings' ? 'bg-gradient-to-b from-orange-500 to-orange-600 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
+              <button data-action="switch-tab" data-tab="buildings" class="p-3 font-semibold transition-all ${state.currentTab === 'buildings' ? 'bg-gradient-to-b from-orange-500 to-orange-600 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
                 🏪 Магазин
               </button>
-              <button onclick="Game.switchTab('upgrades')" class="p-3 font-semibold transition-all ${state.currentTab === 'upgrades' ? 'bg-gradient-to-b from-orange-500 to-orange-600 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
+              <button data-action="switch-tab" data-tab="upgrades" class="p-3 font-semibold transition-all ${state.currentTab === 'upgrades' ? 'bg-gradient-to-b from-orange-500 to-orange-600 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
                 ⚡ Улучшения
               </button>
-              <button onclick="Game.switchTab('achievements')" class="p-3 font-semibold transition-all ${state.currentTab === 'achievements' ? 'bg-gradient-to-b from-orange-500 to-orange-600 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
+              <button data-action="switch-tab" data-tab="achievements" class="p-3 font-semibold transition-all ${state.currentTab === 'achievements' ? 'bg-gradient-to-b from-orange-500 to-orange-600 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
                 🏆 ${unlockedAchievements > 0 ? `(${unlockedAchievements})` : 'Награды'}
               </button>
             </div>
@@ -202,7 +202,8 @@ const UI = {
           
           return `
             <button
-              onclick="Game.buyBuilding(${building.id})"
+              data-action="buy-building"
+              data-id="${building.id}"
               ${!canBuy ? 'disabled' : ''}
               class="w-full p-3 rounded-xl text-left transition-all transform ${
                 canBuy
@@ -210,7 +211,7 @@ const UI = {
                   : 'bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed'
               }"
             >
-              <div class="flex justify-between items-center">
+              <div class="flex justify-between items-center pointer-events-none">
                 <div class="flex items-center gap-3 flex-1">
                   <div class="text-4xl filter drop-shadow-lg">${building.emoji}</div>
                   <div class="flex-1">
@@ -278,7 +279,8 @@ const UI = {
     
     return `
       <button
-        onclick="Game.buyUpgrade(${upgrade.id})"
+        data-action="buy-upgrade"
+        data-id="${upgrade.id}"
         ${upgrade.purchased || state.shawarmas < upgrade.cost ? 'disabled' : ''}
         class="w-full p-3 rounded-xl text-left transition-all transform ${
           upgrade.purchased
@@ -288,7 +290,7 @@ const UI = {
             : 'bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed'
         }"
       >
-        <div class="flex justify-between items-center">
+        <div class="flex justify-between items-center pointer-events-none">
           <div class="flex items-center gap-3">
             <div class="text-3xl filter drop-shadow-lg">${upgrade.emoji}</div>
             <div>
