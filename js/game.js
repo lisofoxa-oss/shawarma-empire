@@ -309,7 +309,7 @@ const Game = {
       }
       
       this.checkAchievements();
-      UI.updateTabContent(); // Обновляем только контент таба
+      UI.forceUpdateTab(); // Принудительное обновление
       UI.updateCounters();
     }
   },
@@ -331,7 +331,7 @@ const Game = {
         this.tg.HapticFeedback.notificationOccurred('success');
       }
       
-      UI.updateTabContent(); // Обновляем только контент таба
+      UI.forceUpdateTab(); // Принудительное обновление
       UI.updateCounters();
     }
   },
@@ -416,7 +416,9 @@ const Game = {
     this.checkAchievements();
     this.calculateProduction();
     this.saveGame();
-    UI.render();
+    
+    // ПОЛНАЯ перерисовка после престижа
+    UI.render(true);
   },
   
   // Смена вкладки
@@ -438,6 +440,11 @@ const Game = {
     setInterval(() => {
       UI.updateCounters();
     }, 1000);
+    
+    // Периодическое обновление кнопок (проверка доступности покупок)
+    setInterval(() => {
+      UI.updateButtonStates();
+    }, 2000);
     
     // Автосохранение каждые 5 секунд
     setInterval(() => {
