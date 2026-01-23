@@ -35,6 +35,66 @@ const UI = {
     if (clicksEl) clicksEl.textContent = state.clickCount;
   },
   
+  // Обновить состояние кнопок (доступность для покупки)
+  updateButtonStates() {
+    const state = Game.state;
+    
+    // Обновляем кнопки зданий
+    document.querySelectorAll('[data-action="buy-building"]').forEach(btn => {
+      const buildingId = parseInt(btn.dataset.id);
+      const building = state.buildings.find(b => b.id === buildingId);
+      if (!building) return;
+      
+      const discount = state.upgrades
+        .filter(u => u.purchased && u.type === 'discount')
+        .reduce((disc, u) => disc * u.buildingDiscount, 1);
+      const finalCost = Math.floor(building.cost * discount);
+      const canBuy = state.shawarmas >= finalCost;
+      
+      if (canBuy) {
+        btn.disabled = false;
+        btn.className = 'w-full p-3 rounded-xl text-left transition-all transform bg-gradient-to-r from-orange-50 to-yellow-50 hover:from-orange-100 hover:to-yellow-100 border-2 border-orange-400 cursor-pointer shadow-md hover:shadow-xl hover:scale-102 active:scale-98';
+      } else {
+        btn.disabled = true;
+        btn.className = 'w-full p-3 rounded-xl text-left transition-all transform bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed';
+      }
+    });
+    
+    // Обновляем кнопки улучшений
+    document.querySelectorAll('[data-action="buy-upgrade"]').forEach(btn => {
+      const upgradeId = parseInt(btn.dataset.id);
+      const upgrade = state.upgrades.find(u => u.id === upgradeId);
+      if (!upgrade) return;
+      
+      if (upgrade.purchased) {
+        btn.disabled = true;
+        btn.className = 'w-full p-3 rounded-xl text-left transition-all transform bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-400 cursor-default';
+      } else if (state.shawarmas >= upgrade.cost) {
+        btn.disabled = false;
+        btn.className = 'w-full p-3 rounded-xl text-left transition-all transform bg-gradient-to-r from-orange-50 to-yellow-50 hover:from-orange-100 hover:to-yellow-100 border-2 border-orange-400 cursor-pointer shadow-md hover:shadow-xl hover:scale-102 active:scale-98';
+      } else {
+        btn.disabled = true;
+        btn.className = 'w-full p-3 rounded-xl text-left transition-all transform bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed';
+      }
+    });
+  },
+  
+  // Принудительное обновление таба (полная перерисовка контента)
+  forceUpdateTab() {
+    const state = Game.state;
+    const tabContent = document.getElementById('tab-content');
+    
+    if (!tabContent) return;
+    
+    if (state.currentTab === 'buildings') {
+      tabContent.innerHTML = this.renderBuildings();
+    } else if (state.currentTab === 'upgrades') {
+      tabContent.innerHTML = this.renderUpgrades();
+    } else if (state.currentTab === 'achievements') {
+      tabContent.innerHTML = this.renderAchievements();
+    }
+  },
+  
   // Показать всплывающее число при клике
   showFloatingNumber(x, y, value) {
     const div = document.createElement('div');
@@ -171,22 +231,7 @@ const UI = {
     `;
   },
   
-  // Обновить контент таба (без перерисовки всего)
-  updateTabContent() {
-    const state = Game.state;
-    const tabContent = document.getElementById('tab-content');
-    
-    if (!tabContent) return;
-    
-    if (state.currentTab === 'buildings') {
-      tabContent.innerHTML = this.renderBuildings();
-    } else if (state.currentTab === 'upgrades') {
-      tabContent.innerHTML = this.renderUpgrades();
-    } else if (state.currentTab === 'achievements') {
-      tabContent.innerHTML = this.renderAchievements();
-    }
-  },
-  
+  // Обновить контент таба (без перерисовки всего) - УДАЛЕНО, используем forceUpdateTab
   // Отрисовка магазина зданий
   renderBuildings() {
     const state = Game.state;
