@@ -237,7 +237,7 @@ const Game = {
     }
     
     this.checkAchievements();
-    UI.render();
+    UI.updateCounters(); // Только обновляем счётчики, не перерисовываем всё
   },
   
   // Покупка здания
