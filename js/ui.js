@@ -1,6 +1,9 @@
 // Отрисовка интерфейса
 
 const UI = {
+  lastRenderTime: 0,
+  renderThrottle: 100, // Рендерим максимум раз в 100мс
+  
   // Форматирование чисел
   formatNumber(num) {
     if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
@@ -66,8 +69,14 @@ const UI = {
     }, 3000);
   },
   
-  // Основная отрисовка интерфейса
+  // Основная отрисовка интерфейса (с throttling)
   render() {
+    const now = Date.now();
+    if (now - this.lastRenderTime < this.renderThrottle) {
+      return; // Пропускаем рендеринг, если слишком рано
+    }
+    this.lastRenderTime = now;
+    
     const state = Game.state;
     const unlockedAchievements = state.achievements.filter(a => a.unlocked).length;
     const canPrestige = state.totalShawarmas >= 1000000;
