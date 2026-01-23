@@ -388,8 +388,12 @@ const Game = {
       this.state.shawarmas += this.state.perSecond / 10;
       this.state.totalShawarmas += this.state.perSecond / 10;
       this.state.lifetimeShawarmas += this.state.perSecond / 10;
-      UI.render();
     }, 100);
+    
+    // Рендеринг раз в секунду (вместо каждые 100мс)
+    setInterval(() => {
+      UI.render();
+    }, 1000);
     
     // Автосохранение каждые 5 секунд
     setInterval(() => {
