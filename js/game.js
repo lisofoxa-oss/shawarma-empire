@@ -127,6 +127,11 @@ var Game = {
       Events.init();
     }
     
+    // Инициализируем систему заказов
+    if (typeof Orders !== 'undefined') {
+      Orders.init();
+    }
+    
     this.isReady = true;
     console.log('✅ Game.init() завершён');
   },
@@ -202,6 +207,12 @@ var Game = {
             UI.openMinigamesMenu();
           }
           break;
+        case 'claim-order':
+          if (typeof Orders !== 'undefined' && id) {
+            Orders.claimReward(target.dataset.id);
+            UI.forceUpdateTab();
+          }
+          break;
       }
     });
     
@@ -211,13 +222,28 @@ var Game = {
   // Загрузка игры
   loadGame: function() {
     var self = this;
+    var loadingComplete = false;
     
     // Показываем индикатор загрузки
     this.showLoadingStatus('Загрузка данных...');
     
+    // Таймаут на случай если облако не отвечает
+    var loadingTimeout = setTimeout(function() {
+      if (!loadingComplete) {
+        console.log('⏱️ Таймаут загрузки облака, грузим локально');
+        loadingComplete = true;
+        self.loadFromLocalStorage();
+        self.finishLoading();
+      }
+    }, 5000); // 5 секунд таймаут
+    
     // Сначала пробуем загрузить из облака
-    if (this.cloudSaveEnabled) {
+    if (this.cloudSaveEnabled && typeof DB !== 'undefined' && DB.isReady) {
       DB.loadUser(function(cloudData) {
+        if (loadingComplete) return; // Уже загрузили по таймауту
+        loadingComplete = true;
+        clearTimeout(loadingTimeout);
+        
         if (cloudData) {
           console.log('☁️ Загружены данные из облака');
           self.applyCloudData(cloudData);
@@ -230,6 +256,8 @@ var Game = {
       });
     } else {
       // Облако не доступно, грузим локально
+      loadingComplete = true;
+      clearTimeout(loadingTimeout);
       this.loadFromLocalStorage();
       this.finishLoading();
     }
@@ -908,6 +936,13 @@ var Game = {
     setInterval(function() {
       if (self.state.currentTab === 'achievements' && typeof UI !== 'undefined') {
         UI.updateAchievementsProgress();
+      }
+    }, 1000);
+    
+    // Обновление заказов (если открыта вкладка)
+    setInterval(function() {
+      if (self.state.currentTab === 'orders' && typeof UI !== 'undefined') {
+        UI.forceUpdateTab();
       }
     }, 1000);
     
