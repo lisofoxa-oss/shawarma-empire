@@ -197,6 +197,11 @@ var Game = {
             UI.forceUpdateTab();
           }
           break;
+        case 'open-minigames':
+          if (typeof UI !== 'undefined') {
+            UI.openMinigamesMenu();
+          }
+          break;
       }
     });
     
