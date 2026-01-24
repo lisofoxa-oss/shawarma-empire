@@ -121,7 +121,7 @@
   position: sticky !important;
 }
 
-/* Убираем лишние z-index конфликты */
+/* Кнопка шаурмы */
 #shawarma-btn {
   position: relative;
   z-index: 1;
@@ -130,4 +130,20 @@
 /* Плавный скролл */
 html {
   scroll-behavior: smooth;
+}
+
+/* Мобильные оптимизации */
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Предотвращаем зум на iOS при двойном тапе */
+button, input, select, textarea {
+  font-size: 16px;
 }
