@@ -74,6 +74,46 @@
       100% { transform: scale(1); }
     }
     .bounce-in { animation: bounce-in 0.5s ease-out; }
+    
+    /* Новые эффекты */
+    @keyframes float-bg {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-20px) rotate(5deg); }
+    }
+    @keyframes wiggle {
+      0%, 100% { transform: rotate(-3deg); }
+      50% { transform: rotate(3deg); }
+    }
+    #shawarma-btn {
+      transition: transform 0.2s ease, filter 0.2s ease;
+    }
+    #shawarma-btn:hover {
+      filter: drop-shadow(0 0 20px rgba(251, 146, 60, 0.7));
+    }
+    #shawarma-btn:active {
+      transform: scale(0.9) !important;
+    }
+    
+    /* Анимированный фон */
+    .bg-pattern {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      overflow: hidden;
+      opacity: 0.1;
+    }
+    .bg-pattern span {
+      position: absolute;
+      font-size: 40px;
+      animation: float-bg 6s ease-in-out infinite;
+    }
+    
+    /* Эффект турбо */
+    .turbo-active #shawarma-btn {
+      animation: wiggle 0.1s ease-in-out infinite;
+      filter: drop-shadow(0 0 30px rgba(255, 200, 0, 0.9)) !important;
+    }
+    
     .overflow-y-auto::-webkit-scrollbar { width: 8px; }
     .overflow-y-auto::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
     .overflow-y-auto::-webkit-scrollbar-thumb { background: #fb923c; border-radius: 10px; }
@@ -194,6 +234,7 @@
         '/js/sounds.js',
         '/js/storage.js',
         '/js/supabase.js',
+        '/js/events.js',
         '/js/game.js',
         '/js/ui.js',
         '/js/main.js'
