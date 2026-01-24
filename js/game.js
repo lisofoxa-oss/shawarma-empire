@@ -156,6 +156,7 @@ var Game = {
       var action = target.dataset.action;
       var id = target.dataset.id ? parseInt(target.dataset.id, 10) : null;
       var tab = target.dataset.tab;
+      var mode = target.dataset.mode ? parseInt(target.dataset.mode, 10) : null;
       
       switch(action) {
         case 'buy-building':
@@ -184,6 +185,12 @@ var Game = {
           break;
         case 'show-leaderboard':
           self.showLeaderboard();
+          break;
+        case 'set-buy-mode':
+          if (mode !== null && typeof UI !== 'undefined') {
+            UI.buyMode = mode;
+            UI.forceUpdateTab();
+          }
           break;
       }
     });
@@ -610,12 +617,38 @@ var Game = {
     if (!building) return;
     
     var discount = this.getBuildingDiscount();
-    var finalCost = Math.floor(building.cost * discount);
+    var buyMode = (typeof UI !== 'undefined') ? UI.buyMode : 1;
     
-    if (this.state.shawarmas >= finalCost) {
-      this.state.shawarmas -= finalCost;
-      building.owned++;
-      building.cost = Math.floor(building.cost * 1.15);
+    // Считаем сколько можем купить
+    var totalCost = 0;
+    var count = 0;
+    var tempCost = building.cost;
+    
+    if (buyMode === 100) {
+      // MAX - покупаем сколько можем
+      var budget = this.state.shawarmas;
+      while (Math.floor(tempCost * discount) <= budget && count < 1000) {
+        var cost = Math.floor(tempCost * discount);
+        totalCost += cost;
+        budget -= cost;
+        tempCost = Math.floor(tempCost * 1.15);
+        count++;
+      }
+    } else {
+      // x1 или x10
+      for (var i = 0; i < buyMode; i++) {
+        var cost = Math.floor(tempCost * discount);
+        if (totalCost + cost > this.state.shawarmas) break;
+        totalCost += cost;
+        tempCost = Math.floor(tempCost * 1.15);
+        count++;
+      }
+    }
+    
+    if (count > 0 && this.state.shawarmas >= totalCost) {
+      this.state.shawarmas -= totalCost;
+      building.owned += count;
+      building.cost = tempCost;
       
       this.calculateProduction();
       this.saveGame();
@@ -717,7 +750,10 @@ var Game = {
     }
     
     var totalBuildings = this.getTotalBuildings();
-    var newBonus = 1 + (this.state.lifetimeShawarmas / 1000000) * 0.5;
+    // Та же формула что и в confirmPrestige
+    var logBonus = Math.log10(Math.max(this.state.lifetimeShawarmas, 1000000) / 1000000);
+    var newBonus = 1 + (logBonus * 0.5) + ((this.state.prestigeLevel + 1) * 0.1);
+    newBonus = Math.min(newBonus, 10);
     
     var totalEl = document.getElementById('prestige-total');
     var buildingsEl = document.getElementById('prestige-buildings');
@@ -742,7 +778,12 @@ var Game = {
     var self = this;
     
     this.state.prestigeLevel++;
-    this.state.prestigeBonus = 1 + (this.state.lifetimeShawarmas / 1000000) * 0.5;
+    // Логарифмическая формула - рост замедляется с каждым престижем
+    // 1M = x1.5, 10M = x2, 100M = x2.5, 1B = x3, и т.д.
+    var logBonus = Math.log10(Math.max(this.state.lifetimeShawarmas, 1000000) / 1000000);
+    this.state.prestigeBonus = 1 + (logBonus * 0.5) + (this.state.prestigeLevel * 0.1);
+    this.state.prestigeBonus = Math.min(this.state.prestigeBonus, 10); // Максимум x10
+    
     this.state.shawarmas = 0;
     this.state.totalShawarmas = 0;
     
@@ -843,6 +884,13 @@ var Game = {
         UI.updateButtonStates();
       }
     }, 2000);
+    
+    // Обновление достижений (если открыта вкладка)
+    setInterval(function() {
+      if (self.state.currentTab === 'achievements' && typeof UI !== 'undefined') {
+        UI.updateAchievementsProgress();
+      }
+    }, 1000);
     
     // Автосохранение
     setInterval(function() {
