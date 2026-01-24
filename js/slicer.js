@@ -586,7 +586,8 @@ var Slicer = {
     }
     
     // Награда
-    var reward = this.score * 10;
+    // Награда = очки × 2 (раньше было ×10, слишком много)
+    var reward = Math.floor(this.score * 2);
     if (typeof Game !== 'undefined') {
       Game.state.shawarmas += reward;
       Game.state.totalShawarmas += reward;
