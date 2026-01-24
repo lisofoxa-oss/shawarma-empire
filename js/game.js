@@ -37,7 +37,7 @@ var Game = {
     minInterval: 20000, // Минимум 20 сек
     maxInterval: 60000, // Максимум 60 сек
     displayTime: 5000,  // Показывается 5 сек
-    bonusMultiplier: 10 // x10 от текущего perSecond или 100 минимум
+    bonusMultiplier: 5 // x5 от текущего perSecond или 25 минимум
   },
   
   // Информация о пользователе Telegram
@@ -227,35 +227,44 @@ var Game = {
     // Показываем индикатор загрузки
     this.showLoadingStatus('Загрузка данных...');
     
+    console.log('🔄 Начинаем загрузку...');
+    console.log('  cloudSaveEnabled:', this.cloudSaveEnabled);
+    console.log('  DB exists:', typeof DB !== 'undefined');
+    console.log('  DB.isReady:', typeof DB !== 'undefined' ? DB.isReady : 'N/A');
+    
     // Таймаут на случай если облако не отвечает
     var loadingTimeout = setTimeout(function() {
       if (!loadingComplete) {
-        console.log('⏱️ Таймаут загрузки облака, грузим локально');
+        console.log('⏱️ Таймаут загрузки облака (5сек), грузим локально');
         loadingComplete = true;
         self.loadFromLocalStorage();
         self.finishLoading();
       }
-    }, 5000); // 5 секунд таймаут
+    }, 5000);
     
     // Сначала пробуем загрузить из облака
     if (this.cloudSaveEnabled && typeof DB !== 'undefined' && DB.isReady) {
+      console.log('☁️ Пробуем загрузить из облака...');
       DB.loadUser(function(cloudData) {
-        if (loadingComplete) return; // Уже загрузили по таймауту
+        if (loadingComplete) {
+          console.log('⚠️ Облако ответило после таймаута, игнорируем');
+          return;
+        }
         loadingComplete = true;
         clearTimeout(loadingTimeout);
         
         if (cloudData) {
-          console.log('☁️ Загружены данные из облака');
+          console.log('☁️ Загружены данные из облака:', cloudData);
           self.applyCloudData(cloudData);
-          self.finishLoading();
         } else {
-          // Облако пустое, грузим из localStorage
+          console.log('☁️ Облако пустое, грузим из localStorage');
           self.loadFromLocalStorage();
-          self.finishLoading();
         }
+        self.finishLoading();
       });
     } else {
       // Облако не доступно, грузим локально
+      console.log('💾 Облако недоступно, грузим локально');
       loadingComplete = true;
       clearTimeout(loadingTimeout);
       this.loadFromLocalStorage();
@@ -500,7 +509,8 @@ var Game = {
     var modal = document.getElementById('daily-reward-modal');
     if (!modal) return;
     
-    var reward = 1000 * Math.max(1, this.state.dailyStreak);
+    // Начинаем с 50, потом +25 за каждый день подряд (макс 7 дней = 225)
+    var reward = 50 + Math.min(this.state.dailyStreak - 1, 6) * 25;
     
     var amountEl = document.getElementById('daily-reward-amount');
     var streakEl = document.getElementById('daily-streak');
@@ -520,7 +530,7 @@ var Game = {
   },
   
   claimDailyReward: function() {
-    var reward = 1000 * Math.max(1, this.state.dailyStreak);
+    var reward = 50 + Math.min(this.state.dailyStreak - 1, 6) * 25;
     this.state.shawarmas += reward;
     this.state.totalShawarmas += reward;
     this.state.lifetimeShawarmas += reward;
@@ -1040,8 +1050,8 @@ var Game = {
   collectGoldenShawarma: function() {
     if (!this.goldenShawarma.active) return;
     
-    // Расчёт бонуса
-    var bonus = Math.max(this.state.perSecond * this.goldenShawarma.bonusMultiplier, 100);
+    // Расчёт бонуса (5 секунд производства или минимум 25)
+    var bonus = Math.max(this.state.perSecond * this.goldenShawarma.bonusMultiplier, 25);
     bonus = Math.floor(bonus * this.state.prestigeBonus);
     
     this.state.shawarmas += bonus;
