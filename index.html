@@ -2,10 +2,11 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>Империя Шаурмы</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/styles.css">
   <style>
@@ -71,6 +72,14 @@
     .overflow-y-auto::-webkit-scrollbar-thumb:hover {
       background: #f97316;
     }
+    /* Предотвращаем выделение текста на мобильных */
+    * {
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+    }
+    body {
+      overscroll-behavior: none;
+    }
   </style>
 </head>
 <body class="bg-gradient-to-br from-orange-100 via-yellow-50 to-red-100">
@@ -102,7 +111,7 @@
           <div class="text-4xl font-bold text-orange-600" id="daily-reward-amount">+1000 🌯</div>
           <div class="text-sm text-gray-600 mt-2">День <span id="daily-streak">1</span></div>
         </div>
-        <button onclick="Game.claimDailyReward()" class="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold py-3 px-6 rounded-xl hover:from-orange-600 hover:to-red-600 transition-all">
+        <button data-action="claim-daily" class="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold py-3 px-6 rounded-xl hover:from-orange-600 hover:to-red-600 transition-all">
           Забрать награду! 🎉
         </button>
       </div>
@@ -119,8 +128,8 @@
         <div class="bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-6 mb-4">
           <div class="text-lg font-semibold mb-2">Текущий прогресс:</div>
           <div class="text-sm text-gray-600 space-y-1">
-            <div>Всего шаурмы: <span class="font-bold text-orange-600" id="prestige-total"></span></div>
-            <div>Зданий куплено: <span class="font-bold text-orange-600" id="prestige-buildings"></span></div>
+            <div>Всего шаурмы: <span class="font-bold text-orange-600" id="prestige-total">0</span></div>
+            <div>Зданий куплено: <span class="font-bold text-orange-600" id="prestige-buildings">0</span></div>
           </div>
           <div class="mt-4 pt-4 border-t-2 border-purple-300">
             <div class="text-lg font-bold text-purple-600">Получишь: x<span id="prestige-bonus">1.5</span> множитель!</div>
@@ -128,10 +137,10 @@
           </div>
         </div>
         <div class="flex gap-2">
-          <button onclick="Game.closePrestigeModal()" class="flex-1 bg-gray-300 text-gray-700 font-bold py-3 px-6 rounded-xl hover:bg-gray-400 transition-all">
+          <button data-action="close-prestige" class="flex-1 bg-gray-300 text-gray-700 font-bold py-3 px-6 rounded-xl hover:bg-gray-400 transition-all">
             Отмена
           </button>
-          <button onclick="Game.confirmPrestige()" class="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-3 px-6 rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all">
+          <button data-action="confirm-prestige" class="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-3 px-6 rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all">
             Престиж! ⭐
           </button>
         </div>
@@ -145,31 +154,33 @@
     console.log('🌯 Начало загрузки скриптов...');
     console.log('Telegram WebApp доступен:', typeof window.Telegram !== 'undefined');
     
-    // Проверка загрузки каждого скрипта
+    // Обработка ошибок загрузки скриптов
     window.addEventListener('error', function(e) {
-      console.error('Ошибка загрузки:', e);
-      if (e.target.tagName === 'SCRIPT') {
-        document.getElementById('app').innerHTML = `
-          <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="text-center bg-red-100 border-2 border-red-400 rounded-xl p-6">
-              <div class="text-4xl mb-4">❌</div>
-              <div class="text-xl font-bold text-red-600 mb-2">Ошибка загрузки</div>
-              <div class="text-sm text-gray-700">Не удалось загрузить файл: ${e.target.src}</div>
-              <button onclick="location.reload()" class="mt-4 bg-red-500 text-white px-4 py-2 rounded-lg">
-                Перезагрузить
-              </button>
-            </div>
-          </div>
-        `;
+      if (e.target && e.target.tagName === 'SCRIPT') {
+        console.error('Ошибка загрузки скрипта:', e.target.src);
+        var appEl = document.getElementById('app');
+        if (appEl) {
+          appEl.innerHTML = 
+            '<div class="flex items-center justify-center min-h-screen p-4">' +
+              '<div class="text-center bg-red-100 border-2 border-red-400 rounded-xl p-6">' +
+                '<div class="text-4xl mb-4">❌</div>' +
+                '<div class="text-xl font-bold text-red-600 mb-2">Ошибка загрузки</div>' +
+                '<div class="text-sm text-gray-700">Не удалось загрузить: ' + e.target.src + '</div>' +
+                '<button onclick="location.reload()" class="mt-4 bg-red-500 text-white px-4 py-2 rounded-lg">' +
+                  'Перезагрузить' +
+                '</button>' +
+              '</div>' +
+            '</div>';
+        }
       }
     }, true);
   </script>
-  <script src="/js/config.js" onerror="console.error('Failed to load config.js')"></script>
-  <script src="/js/sounds.js" onerror="console.error('Failed to load sounds.js')"></script>
-  <script src="/js/storage.js" onerror="console.error('Failed to load storage.js')"></script>
-  <script src="/js/game.js" onerror="console.error('Failed to load game.js')"></script>
-  <script src="/js/ui.js" onerror="console.error('Failed to load ui.js')"></script>
-  <script src="/js/main.js" onerror="console.error('Failed to load main.js')"></script>
+  <script src="/js/config.js"></script>
+  <script src="/js/sounds.js"></script>
+  <script src="/js/storage.js"></script>
+  <script src="/js/game.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/main.js"></script>
   <script>
     console.log('✅ Все скрипты загружены');
   </script>
