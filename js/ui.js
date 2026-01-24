@@ -415,60 +415,84 @@ var UI = {
     }
     
     var tabCls = function(t) {
-      return state.currentTab === t 
-        ? 'bg-gradient-to-b from-orange-500 to-orange-600 text-white' 
-        : 'bg-gray-100 text-gray-700';
+      return state.currentTab === t ? 'tab-btn active' : 'tab-btn';
     };
     
-    var html = '<div class="min-h-screen pb-20">' +
-      '<div class="bg-gradient-to-r from-orange-500 via-red-500 to-orange-600 text-white p-3 shadow-lg sticky top-0 z-30">' +
-        '<div class="flex justify-between items-center mb-2">' +
-          '<h1 class="text-xl font-bold whitespace-nowrap">🌯 Империя Шаурмы</h1>' +
-          '<div class="flex gap-1 flex-shrink-0">' +
-            '<span class="text-xs" title="' + (Game.cloudSaveEnabled ? 'Облако' : 'Локально') + '">' + cloud + '</span>' +
-            '<button data-action="open-minigames" class="bg-green-500 hover:bg-green-600 px-2 py-1 rounded text-xs">🎮</button>' +
-            (Game.cloudSaveEnabled ? '<button data-action="show-leaderboard" class="bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded text-xs">🏆</button>' : '') +
-            (canPrestige ? '<button data-action="open-prestige" class="bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded text-xs golden-shine">⭐</button>' : '') +
-          '</div>' +
-        '</div>' +
-        '<div class="grid grid-cols-3 gap-2 text-center">' +
-          '<div class="bg-white bg-opacity-20 rounded-lg p-2">' +
-            '<div id="counter-shawarmas" class="text-xl font-bold">' + this.formatNumber(state.shawarmas) + '</div>' +
-            '<div class="text-xs">Шаурмы</div>' +
-          '</div>' +
-          '<div class="bg-white bg-opacity-20 rounded-lg p-2">' +
-            '<div id="counter-perclick" class="font-bold">+' + this.formatNumber(state.perClick) + '</div>' +
-            '<div class="text-xs">За клик</div>' +
-          '</div>' +
-          '<div class="bg-white bg-opacity-20 rounded-lg p-2">' +
-            '<div id="counter-persecond" class="font-bold">+' + this.formatNumber(state.perSecond) + '/с</div>' +
-            '<div class="text-xs">В секунду</div>' +
-          '</div>' +
-        '</div>' +
-        (state.prestigeLevel > 0 ? '<div class="text-center mt-2 text-sm bg-purple-600 bg-opacity-50 rounded py-1">⭐ Престиж ' + state.prestigeLevel + ' (x' + state.prestigeBonus.toFixed(2) + ')</div>' : '') +
-      '</div>' +
-      '<div class="max-w-2xl mx-auto p-4 space-y-4">' +
-        '<div class="bg-white rounded-2xl p-6 shadow-xl text-center">' +
-          '<button id="shawarma-btn" data-action="click-shawarma" class="text-8xl select-none cursor-pointer transform hover:scale-105 active:scale-95 transition-transform">🌯</button>' +
-          '<p class="text-gray-600 mt-2 font-semibold">Нажми на шаурму!</p>' +
-          '<div class="text-sm text-gray-500 mt-2">' +
-            'Всего: <span id="counter-total">' + this.formatNumber(state.totalShawarmas) + '</span> | ' +
-            'За всё время: <span id="counter-lifetime">' + this.formatNumber(state.lifetimeShawarmas) + '</span> | ' +
-            'Кликов: <span id="counter-clicks">' + state.clickCount + '</span>' +
-          '</div>' +
-        '</div>' +
-        '<div class="bg-white rounded-2xl shadow-xl overflow-hidden">' +
-          '<div class="grid grid-cols-4 border-b-2 border-gray-200">' +
-            '<button data-action="switch-tab" data-tab="buildings" class="p-2 font-semibold text-sm ' + tabCls('buildings') + '">🏪 Магазин</button>' +
-            '<button data-action="switch-tab" data-tab="upgrades" class="p-2 font-semibold text-sm ' + tabCls('upgrades') + '">⚡ Апгрейды</button>' +
-            '<button data-action="switch-tab" data-tab="orders" class="p-2 font-semibold text-sm ' + tabCls('orders') + '">📦 ' + (readyOrders > 0 ? '<span class="bg-red-500 text-white text-xs px-1 rounded">' + readyOrders + '</span>' : 'Заказы') + '</button>' +
-            '<button data-action="switch-tab" data-tab="achievements" class="p-2 font-semibold text-sm ' + tabCls('achievements') + '">🏆 ' + (unlocked > 0 ? '(' + unlocked + ')' : '') + '</button>' +
-          '</div>' +
-          '<div id="tab-content" class="p-4 max-h-80 overflow-y-auto">' + tabContent + '</div>' +
-        '</div>' +
-      '</div>' +
-    '</div>';
+    // Генерируем частицы для фона
+    var particles = '';
+    for (var p = 0; p < 15; p++) {
+      var left = Math.random() * 100;
+      var delay = Math.random() * 20;
+      var size = 2 + Math.random() * 4;
+      particles += '<div class="bg-particle" style="left:' + left + '%;animation-delay:-' + delay + 's;width:' + size + 'px;height:' + size + 'px;"></div>';
+    }
     
+    var html = 
+      // Анимированный фон
+      '<div class="game-bg">' + particles + '</div>' +
+      
+      // Основной контент
+      '<div style="position:relative;z-index:10;min-height:100vh;padding-bottom:80px;">' +
+        
+        // Шапка
+        '<header class="game-header">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+            '<h1 class="header-title">🌯 Империя Шаурмы</h1>' +
+            '<div style="display:flex;gap:8px;align-items:center;">' +
+              '<span style="font-size:0.75rem;opacity:0.6;">' + cloud + '</span>' +
+              '<button data-action="open-minigames" class="header-btn">🎮</button>' +
+              (Game.cloudSaveEnabled ? '<button data-action="show-leaderboard" class="header-btn">🏆</button>' : '') +
+              (canPrestige ? '<button data-action="open-prestige" class="header-btn golden">⭐</button>' : '') +
+            '</div>' +
+          '</div>' +
+          
+          // Статистика
+          '<div class="stats-grid">' +
+            '<div class="stat-card">' +
+              '<div id="counter-shawarmas" class="stat-value">' + this.formatNumber(state.shawarmas) + '</div>' +
+              '<div class="stat-label">Шаурмы</div>' +
+            '</div>' +
+            '<div class="stat-card">' +
+              '<div id="counter-perclick" class="stat-value">+' + this.formatNumber(state.perClick) + '</div>' +
+              '<div class="stat-label">За клик</div>' +
+            '</div>' +
+            '<div class="stat-card">' +
+              '<div id="counter-persecond" class="stat-value">+' + this.formatNumber(state.perSecond) + '/с</div>' +
+              '<div class="stat-label">В секунду</div>' +
+            '</div>' +
+          '</div>' +
+          
+          // Престиж бейдж
+          (state.prestigeLevel > 0 ? '<div class="prestige-badge" style="display:flex;margin:8px auto 0;">⭐ Престиж ' + state.prestigeLevel + ' <span style="opacity:0.7;margin-left:4px;">(x' + state.prestigeBonus.toFixed(2) + ')</span></div>' : '') +
+        '</header>' +
+        
+        // Кликер
+        '<section class="clicker-section">' +
+          '<div class="shawarma-container">' +
+            '<div class="shawarma-glow"></div>' +
+            '<div class="orbit-ring orbit-ring-1"></div>' +
+            '<div class="orbit-ring orbit-ring-2"></div>' +
+            '<button id="shawarma-btn" data-action="click-shawarma" class="shawarma-btn">🌯</button>' +
+          '</div>' +
+          '<p style="text-align:center;margin-top:16px;font-size:0.875rem;color:rgba(255,255,255,0.6);">Нажми на шаурму!</p>' +
+          '<div style="text-align:center;font-size:0.75rem;margin-top:8px;color:rgba(255,255,255,0.5);">' +
+            'Всего: <span id="counter-total" style="color:white;">' + this.formatNumber(state.totalShawarmas) + '</span> · ' +
+            'Кликов: <span id="counter-clicks" style="color:white;">' + state.clickCount + '</span>' +
+          '</div>' +
+        '</section>' +
+        
+        // Табы
+        '<div class="tabs-container">' +
+          '<div class="tabs-header">' +
+            '<button data-action="switch-tab" data-tab="buildings" class="' + tabCls('buildings') + '">🏪 Магазин</button>' +
+            '<button data-action="switch-tab" data-tab="upgrades" class="' + tabCls('upgrades') + '">⚡ Апгрейды</button>' +
+            '<button data-action="switch-tab" data-tab="orders" class="' + tabCls('orders') + '">📦' + (readyOrders > 0 ? ' <span class="tab-badge">' + readyOrders + '</span>' : '') + '</button>' +
+            '<button data-action="switch-tab" data-tab="achievements" class="' + tabCls('achievements') + '">🏆' + (unlocked > 0 ? ' <span style="opacity:0.7;">(' + unlocked + ')</span>' : '') + '</button>' +
+          '</div>' +
+          '<div id="tab-content" class="tabs-content">' + tabContent + '</div>' +
+        '</div>' +
+        
+      '</div>';
     
     document.getElementById('app').innerHTML = html;
   },
@@ -482,46 +506,34 @@ var UI = {
     var self = this;
     
     // Кнопки режима покупки
-    var html = '<div class="flex gap-2 mb-3 justify-center">' +
-      '<button data-action="set-buy-mode" data-mode="1" class="px-3 py-1 rounded-lg text-sm font-bold ' + 
-        (this.buyMode === 1 ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700') + '">x1</button>' +
-      '<button data-action="set-buy-mode" data-mode="10" class="px-3 py-1 rounded-lg text-sm font-bold ' + 
-        (this.buyMode === 10 ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700') + '">x10</button>' +
-      '<button data-action="set-buy-mode" data-mode="100" class="px-3 py-1 rounded-lg text-sm font-bold ' + 
-        (this.buyMode === 100 ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700') + '">MAX</button>' +
+    var html = '<div class="buy-mode-btns">' +
+      '<button data-action="set-buy-mode" data-mode="1" class="buy-mode-btn ' + (this.buyMode === 1 ? 'active' : '') + '">x1</button>' +
+      '<button data-action="set-buy-mode" data-mode="10" class="buy-mode-btn ' + (this.buyMode === 10 ? 'active' : '') + '">x10</button>' +
+      '<button data-action="set-buy-mode" data-mode="100" class="buy-mode-btn ' + (this.buyMode === 100 ? 'active' : '') + '">MAX</button>' +
     '</div>';
-    
-    html += '<div class="space-y-2">';
     
     for (var i = 0; i < state.buildings.length; i++) {
       var b = state.buildings[i];
       var buyInfo = this.calculateBulkBuy(b, discount, this.buyMode);
       var canBuy = buyInfo.count > 0;
-      var cls = canBuy
-        ? 'bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-400 cursor-pointer shadow-md'
-        : 'bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed';
+      var cardClass = 'building-card' + (canBuy ? ' affordable' : ' disabled');
       
-      html += '<button data-action="buy-building" data-id="' + b.id + '" ' + (canBuy ? '' : 'disabled') +
-        ' class="w-full p-3 rounded-xl text-left ' + cls + '">' +
-        '<div class="flex justify-between items-center">' +
-          '<div class="flex items-center gap-3">' +
-            '<span class="text-3xl">' + b.emoji + '</span>' +
-            '<div>' +
-              '<div class="font-bold">' + b.name + (buyInfo.count > 1 ? ' <span class="text-green-600">(+' + buyInfo.count + ')</span>' : '') + '</div>' +
-              '<div class="text-xs text-gray-500">' + b.desc + '</div>' +
-              '<div class="text-sm text-orange-600">+' + this.formatNumber(b.production * state.prestigeBonus) + '/с каждое</div>' +
-              '<div class="text-xs text-gray-400">Куплено: ' + b.owned + '</div>' +
-            '</div>' +
-          '</div>' +
-          '<div class="text-right">' +
-            '<div class="text-orange-600 font-bold">' + this.formatNumber(buyInfo.totalCost) + '</div>' +
-            '<div class="text-xs text-gray-500">🌯</div>' +
-          '</div>' +
+      html += '<div data-action="buy-building" data-id="' + b.id + '" class="' + cardClass + '" ' + (canBuy ? '' : 'style="pointer-events:none;"') + '>' +
+        '<div class="building-icon">' + b.emoji + '</div>' +
+        '<div class="building-info">' +
+          '<div class="building-name">' + b.name + (buyInfo.count > 1 ? ' <span style="color:#22c55e;">(+' + buyInfo.count + ')</span>' : '') + '</div>' +
+          '<div class="building-desc">' + b.desc + '</div>' +
+          '<div class="building-production">+' + this.formatNumber(b.production * state.prestigeBonus) + '/с</div>' +
+          '<div class="building-owned">Куплено: ' + b.owned + '</div>' +
         '</div>' +
-      '</button>';
+        '<div class="building-cost">' +
+          '<div class="cost-value">' + this.formatNumber(buyInfo.totalCost) + '</div>' +
+          '<div class="cost-label">🌯</div>' +
+        '</div>' +
+      '</div>';
     }
     
-    return html + '</div>';
+    return html;
   },
   
   // Расчёт стоимости покупки нескольких зданий
