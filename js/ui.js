@@ -6,10 +6,36 @@ var UI = {
   
   formatNumber: function(num) {
     if (num === undefined || num === null || isNaN(num)) return '0';
-    if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
-    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
-    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
-    if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+    if (num < 0) return '-' + this.formatNumber(-num);
+    
+    var suffixes = [
+      { value: 1e33, suffix: 'D' },   // Decillion
+      { value: 1e30, suffix: 'N' },   // Nonillion
+      { value: 1e27, suffix: 'Oc' },  // Octillion
+      { value: 1e24, suffix: 'Sp' },  // Septillion
+      { value: 1e21, suffix: 'Sx' },  // Sextillion
+      { value: 1e18, suffix: 'Qi' },  // Quintillion
+      { value: 1e15, suffix: 'Qa' },  // Quadrillion
+      { value: 1e12, suffix: 'T' },   // Trillion
+      { value: 1e9, suffix: 'B' },    // Billion
+      { value: 1e6, suffix: 'M' },    // Million
+      { value: 1e3, suffix: 'K' }     // Thousand
+    ];
+    
+    for (var i = 0; i < suffixes.length; i++) {
+      if (num >= suffixes[i].value) {
+        var formatted = num / suffixes[i].value;
+        // Показываем 2 знака после запятой, но убираем лишние нули
+        if (formatted >= 100) {
+          return Math.floor(formatted) + suffixes[i].suffix;
+        } else if (formatted >= 10) {
+          return formatted.toFixed(1).replace(/\.0$/, '') + suffixes[i].suffix;
+        } else {
+          return formatted.toFixed(2).replace(/\.?0+$/, '') + suffixes[i].suffix;
+        }
+      }
+    }
+    
     return Math.floor(num).toString();
   },
   
@@ -98,11 +124,20 @@ var UI = {
   
   // Обновление индикатора комбо
   updateComboIndicator: function(count, multiplier) {
+    var self = this;
     var indicator = document.getElementById('combo-indicator');
+    
+    // Очищаем предыдущий таймер скрытия
+    if (this.comboHideTimeout) {
+      clearTimeout(this.comboHideTimeout);
+    }
     
     if (count < 3) {
       // Скрываем при низком комбо
-      if (indicator) indicator.style.opacity = '0';
+      if (indicator) {
+        indicator.style.opacity = '0';
+        indicator.style.transform = 'translateX(-50%) scale(0.8)';
+      }
       return;
     }
     
@@ -110,21 +145,33 @@ var UI = {
       // Создаём индикатор если его нет
       indicator = document.createElement('div');
       indicator.id = 'combo-indicator';
-      indicator.className = 'fixed top-32 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-full font-bold shadow-lg z-30 transition-all';
+      indicator.className = 'fixed top-32 left-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-full font-bold shadow-lg z-30';
+      indicator.style.cssText = 'transition: all 0.3s ease; transform: translateX(-50%);';
       document.body.appendChild(indicator);
     }
     
     indicator.style.opacity = '1';
-    indicator.innerHTML = '🔥 КОМБО x' + multiplier.toFixed(1) + ' (' + count + ')';
+    indicator.style.transform = 'translateX(-50%) scale(1)';
+    indicator.innerHTML = '🔥 x' + multiplier.toFixed(1);
     
     // Эффект пульсации при высоком комбо
     if (multiplier >= 3) {
-      indicator.style.transform = 'translateX(-50%) scale(1.1)';
+      indicator.style.transform = 'translateX(-50%) scale(1.15)';
       setTimeout(function() {
-        indicator.style.transform = 'translateX(-50%) scale(1)';
+        if (indicator) indicator.style.transform = 'translateX(-50%) scale(1)';
       }, 100);
     }
+    
+    // Автоскрытие через 1.5 секунды бездействия
+    this.comboHideTimeout = setTimeout(function() {
+      if (indicator) {
+        indicator.style.opacity = '0';
+        indicator.style.transform = 'translateX(-50%) scale(0.8)';
+      }
+    }, 1500);
   },
+  
+  comboHideTimeout: null,
   
   createParticles: function(x, y, count, emoji) {
     var container = document.getElementById('particles-container');
@@ -266,15 +313,30 @@ var UI = {
     document.getElementById('app').innerHTML = html;
   },
   
+  // Режим покупки зданий (1, 10, max)
+  buyMode: 1,
+  
   renderBuildings: function() {
     var state = Game.state;
     var discount = Game.getBuildingDiscount();
-    var html = '<div class="space-y-2">';
+    var self = this;
+    
+    // Кнопки режима покупки
+    var html = '<div class="flex gap-2 mb-3 justify-center">' +
+      '<button data-action="set-buy-mode" data-mode="1" class="px-3 py-1 rounded-lg text-sm font-bold ' + 
+        (this.buyMode === 1 ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700') + '">x1</button>' +
+      '<button data-action="set-buy-mode" data-mode="10" class="px-3 py-1 rounded-lg text-sm font-bold ' + 
+        (this.buyMode === 10 ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700') + '">x10</button>' +
+      '<button data-action="set-buy-mode" data-mode="100" class="px-3 py-1 rounded-lg text-sm font-bold ' + 
+        (this.buyMode === 100 ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700') + '">MAX</button>' +
+    '</div>';
+    
+    html += '<div class="space-y-2">';
     
     for (var i = 0; i < state.buildings.length; i++) {
       var b = state.buildings[i];
-      var cost = Math.floor(b.cost * discount);
-      var canBuy = state.shawarmas >= cost;
+      var buyInfo = this.calculateBulkBuy(b, discount, this.buyMode);
+      var canBuy = buyInfo.count > 0;
       var cls = canBuy
         ? 'bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-400 cursor-pointer shadow-md'
         : 'bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed';
@@ -285,14 +347,14 @@ var UI = {
           '<div class="flex items-center gap-3">' +
             '<span class="text-3xl">' + b.emoji + '</span>' +
             '<div>' +
-              '<div class="font-bold">' + b.name + '</div>' +
+              '<div class="font-bold">' + b.name + (buyInfo.count > 1 ? ' <span class="text-green-600">(+' + buyInfo.count + ')</span>' : '') + '</div>' +
               '<div class="text-xs text-gray-500">' + b.desc + '</div>' +
-              '<div class="text-sm text-orange-600">+' + this.formatNumber(b.production * state.prestigeBonus) + '/с</div>' +
+              '<div class="text-sm text-orange-600">+' + this.formatNumber(b.production * state.prestigeBonus) + '/с каждое</div>' +
               '<div class="text-xs text-gray-400">Куплено: ' + b.owned + '</div>' +
             '</div>' +
           '</div>' +
           '<div class="text-right">' +
-            '<div class="text-orange-600 font-bold">' + this.formatNumber(cost) + '</div>' +
+            '<div class="text-orange-600 font-bold">' + this.formatNumber(buyInfo.totalCost) + '</div>' +
             '<div class="text-xs text-gray-500">🌯</div>' +
           '</div>' +
         '</div>' +
@@ -300,6 +362,45 @@ var UI = {
     }
     
     return html + '</div>';
+  },
+  
+  // Расчёт стоимости покупки нескольких зданий
+  calculateBulkBuy: function(building, discount, mode) {
+    var state = Game.state;
+    var baseCost = building.cost;
+    var totalCost = 0;
+    var count = 0;
+    var tempCost = baseCost;
+    
+    if (mode === 100) {
+      // MAX - покупаем сколько можем
+      var budget = state.shawarmas;
+      while (Math.floor(tempCost * discount) <= budget && count < 1000) {
+        var cost = Math.floor(tempCost * discount);
+        totalCost += cost;
+        budget -= cost;
+        tempCost = Math.floor(tempCost * 1.15);
+        count++;
+      }
+    } else {
+      // x1 или x10
+      for (var i = 0; i < mode; i++) {
+        totalCost += Math.floor(tempCost * discount);
+        tempCost = Math.floor(tempCost * 1.15);
+        count++;
+      }
+      // Проверяем можем ли купить
+      if (totalCost > state.shawarmas) {
+        count = 0;
+        totalCost = Math.floor(baseCost * discount); // Показываем цену 1 штуки
+      }
+    }
+    
+    if (count === 0) {
+      totalCost = Math.floor(baseCost * discount);
+    }
+    
+    return { count: count, totalCost: totalCost };
   },
   
   renderUpgrades: function() {
@@ -377,14 +478,44 @@ var UI = {
             '<div class="text-xs text-orange-600">🎁 +' + this.formatNumber(a.reward) + '</div>' +
             (a.unlocked ? '<div class="text-green-600 text-xs font-bold">✨ Получено!</div>' :
               '<div class="mt-1"><div class="w-full bg-gray-300 rounded-full h-2">' +
-              '<div class="bg-orange-500 h-2 rounded-full" style="width:' + pct + '%"></div></div>' +
-              '<div class="text-xs text-gray-500 mt-1">' + this.formatNumber(progress) + '/' + this.formatNumber(a.target) + '</div></div>') +
+              '<div data-ach-bar="' + a.id + '" class="bg-orange-500 h-2 rounded-full transition-all duration-300" style="width:' + pct + '%"></div></div>' +
+              '<div data-ach-text="' + a.id + '" class="text-xs text-gray-500 mt-1">' + this.formatNumber(progress) + '/' + this.formatNumber(a.target) + '</div></div>') +
           '</div>' +
         '</div>' +
       '</div>';
     }
     
     return html + '</div>';
+  },
+  
+  // Обновление прогресса достижений (без перерисовки всего)
+  updateAchievementsProgress: function() {
+    var state = Game.state;
+    var totalBuildings = Game.getTotalBuildings();
+    
+    for (var i = 0; i < state.achievements.length; i++) {
+      var a = state.achievements[i];
+      if (a.unlocked) continue;
+      
+      var progress = 0;
+      if (a.type === 'total') progress = state.totalShawarmas;
+      else if (a.type === 'clicks') progress = state.clickCount;
+      else if (a.type === 'buildings') progress = totalBuildings;
+      else if (a.type === 'prestige') progress = state.prestigeLevel;
+      
+      var pct = Math.min((progress / a.target) * 100, 100);
+      
+      // Находим элементы по data-атрибутам
+      var progressBar = document.querySelector('[data-ach-bar="' + a.id + '"]');
+      var progressText = document.querySelector('[data-ach-text="' + a.id + '"]');
+      
+      if (progressBar) {
+        progressBar.style.width = pct + '%';
+      }
+      if (progressText) {
+        progressText.textContent = this.formatNumber(progress) + '/' + this.formatNumber(a.target);
+      }
+    }
   }
 };
 
