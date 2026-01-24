@@ -66,6 +66,9 @@ var Events = {
   // Таймер следующего события
   nextEventTimeout: null,
   
+  // Пауза событий (во время мини-игр)
+  pauseEvents: false,
+  
   // Инициализация
   init: function() {
     this.scheduleNextEvent();
@@ -84,6 +87,12 @@ var Events = {
   
   // Вызвать случайное событие
   triggerRandomEvent: function() {
+    // Не запускаем если пауза
+    if (this.pauseEvents) {
+      this.scheduleNextEvent();
+      return;
+    }
+    
     // Выбираем случайное событие по весам
     var totalChance = 0;
     for (var i = 0; i < this.eventTypes.length; i++) {
