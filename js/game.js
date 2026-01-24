@@ -122,6 +122,11 @@ var Game = {
     // Запускаем игровые циклы
     this.startGameLoops();
     
+    // Инициализируем систему событий
+    if (typeof Events !== 'undefined') {
+      Events.init();
+    }
+    
     this.isReady = true;
     console.log('✅ Game.init() завершён');
   },
@@ -546,8 +551,11 @@ var Game = {
     }
     this.combo.lastClickTime = now;
     
-    // Расчёт награды с комбо
-    var clickReward = this.state.perClick * this.combo.multiplier;
+    // Множитель от событий
+    var eventClickMult = (typeof Events !== 'undefined') ? Events.getClickMultiplier() : 1;
+    
+    // Расчёт награды с комбо и событиями
+    var clickReward = this.state.perClick * this.combo.multiplier * eventClickMult;
     
     this.state.shawarmas += clickReward;
     this.state.totalShawarmas += clickReward;
@@ -608,6 +616,10 @@ var Game = {
       if (u.purchased && u.type === 'discount') {
         discount *= u.buildingDiscount;
       }
+    }
+    // Скидка от событий
+    if (typeof Events !== 'undefined') {
+      discount *= Events.getDiscountMultiplier();
     }
     return discount;
   },
@@ -866,9 +878,11 @@ var Game = {
     
     // Автопроизводство
     setInterval(function() {
-      self.state.shawarmas += self.state.perSecond / 10;
-      self.state.totalShawarmas += self.state.perSecond / 10;
-      self.state.lifetimeShawarmas += self.state.perSecond / 10;
+      var eventMult = (typeof Events !== 'undefined') ? Events.getProductionMultiplier() : 1;
+      var production = (self.state.perSecond / 10) * eventMult;
+      self.state.shawarmas += production;
+      self.state.totalShawarmas += production;
+      self.state.lifetimeShawarmas += production;
     }, 100);
     
     // Обновление UI
