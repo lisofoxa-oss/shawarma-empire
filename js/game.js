@@ -951,6 +951,12 @@ var Game = {
   spawnGoldenShawarma: function() {
     if (this.goldenShawarma.active) return;
     
+    // Не спавним если события на паузе (мини-игра)
+    if (typeof Events !== 'undefined' && Events.pauseEvents) {
+      this.scheduleGoldenShawarma();
+      return;
+    }
+    
     var self = this;
     this.goldenShawarma.active = true;
     
