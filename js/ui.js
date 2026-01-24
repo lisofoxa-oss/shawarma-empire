@@ -173,6 +173,72 @@ var UI = {
   
   comboHideTimeout: null,
   
+  // Показать уведомление о событии
+  showEventNotification: function(event) {
+    var notification = document.createElement('div');
+    notification.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 text-center';
+    notification.innerHTML = 
+      '<div class="bg-gradient-to-r ' + event.color + ' text-white px-8 py-6 rounded-2xl shadow-2xl animate-bounce">' +
+        '<div class="text-5xl mb-2">' + event.emoji + '</div>' +
+        '<div class="text-2xl font-bold">' + event.name + '</div>' +
+        '<div class="text-lg opacity-90">' + event.desc + '</div>' +
+      '</div>';
+    
+    document.body.appendChild(notification);
+    
+    // Анимация исчезновения
+    setTimeout(function() {
+      notification.style.transition = 'all 0.5s ease';
+      notification.style.opacity = '0';
+      notification.style.transform = 'translate(-50%, -50%) scale(0.5)';
+      setTimeout(function() {
+        notification.remove();
+      }, 500);
+    }, 2000);
+  },
+  
+  // Отрисовка активных эффектов
+  renderActiveEffects: function(effects) {
+    var container = document.getElementById('active-effects');
+    
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'active-effects';
+      container.className = 'fixed top-28 left-1/2 transform -translate-x-1/2 z-40 flex gap-2';
+      document.body.appendChild(container);
+    }
+    
+    if (effects.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+    
+    var html = '';
+    var now = Date.now();
+    
+    for (var i = 0; i < effects.length; i++) {
+      var e = effects[i];
+      var remaining = Math.max(0, Math.ceil((e.endsAt - now) / 1000));
+      
+      html += '<div class="bg-black bg-opacity-70 text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-1">' +
+        '<span>' + e.emoji + '</span>' +
+        '<span>' + remaining + 'с</span>' +
+      '</div>';
+    }
+    
+    container.innerHTML = html;
+    
+    // Обновляем каждую секунду
+    if (effects.length > 0) {
+      var self = this;
+      setTimeout(function() {
+        if (typeof Events !== 'undefined') {
+          self.renderActiveEffects(Events.activeEffects);
+        }
+      }, 1000);
+    }
+  },
+  
   createParticles: function(x, y, count, emoji) {
     var container = document.getElementById('particles-container');
     if (!container) return;
