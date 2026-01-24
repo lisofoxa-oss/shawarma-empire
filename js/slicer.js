@@ -98,6 +98,15 @@ var Slicer = {
     this.timeLeft = this.duration;
     this.activeObjects = [];
     
+    // Приостанавливаем события
+    if (typeof Events !== 'undefined') {
+      Events.pauseEvents = true;
+      // Убираем золотую шаурму если есть
+      if (typeof Game !== 'undefined') {
+        Game.removeGoldenShawarma();
+      }
+    }
+    
     // Создаём игровой экран
     this.createGameScreen();
     
@@ -647,6 +656,11 @@ var Slicer = {
     this.comboEl = null;
     this.activeObjects = [];
     this.active = false;
+    
+    // Возобновляем события
+    if (typeof Events !== 'undefined') {
+      Events.pauseEvents = false;
+    }
     
     // Обновляем UI
     if (typeof UI !== 'undefined') {
