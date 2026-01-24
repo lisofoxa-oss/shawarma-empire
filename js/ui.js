@@ -312,7 +312,6 @@ var UI = {
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
     
     var slicerBest = localStorage.getItem('slicer_best') || 0;
-    var chopperBest = localStorage.getItem('chopper_best') || 0;
     
     modal.innerHTML = 
       '<div class="bg-white rounded-3xl p-6 max-w-sm mx-4 max-h-[90vh] overflow-y-auto">' +
@@ -334,25 +333,13 @@ var UI = {
               '<div class="text-2xl">▶</div>' +
             '</div>' +
           '</button>' +
-          // Нарезка
-          '<button data-action="open-chopper" class="w-full p-4 bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-xl text-left hover:from-orange-500 hover:to-red-600 transition-all">' +
-            '<div class="flex items-center gap-3">' +
-              '<div class="text-4xl">🥒</div>' +
-              '<div class="flex-1">' +
-                '<div class="font-bold text-lg">Нарезка</div>' +
-                '<div class="text-sm opacity-90">Нарежь на максимум кусочков!</div>' +
-                '<div class="text-xs opacity-75">Рекорд: ' + chopperBest + ' полосок</div>' +
-              '</div>' +
-              '<div class="text-2xl">▶</div>' +
-            '</div>' +
-          '</button>' +
           // Дуэли (скоро)
           '<div class="w-full p-4 bg-gray-100 text-gray-400 rounded-xl text-left opacity-60">' +
             '<div class="flex items-center gap-3">' +
               '<div class="text-4xl">⚔️</div>' +
               '<div class="flex-1">' +
                 '<div class="font-bold text-lg">Дуэли</div>' +
-                '<div class="text-sm">Соревнуйся с другими!</div>' +
+                '<div class="text-sm">Соревнуйся в Слайсере!</div>' +
                 '<div class="text-xs">🔒 Скоро</div>' +
               '</div>' +
             '</div>' +
@@ -383,13 +370,6 @@ var UI = {
       modal.remove();
       if (typeof Slicer !== 'undefined') {
         Slicer.openMenu();
-      }
-    };
-    
-    modal.querySelector('[data-action="open-chopper"]').onclick = function() {
-      modal.remove();
-      if (typeof Chopper !== 'undefined') {
-        Chopper.openMenu();
       }
     };
     
