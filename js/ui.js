@@ -290,9 +290,11 @@ var UI = {
         var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.';
         var isMe = Game.userInfo.id == l.user_id;
         var bg = isMe ? 'bg-orange-100 border-orange-400' : 'bg-gray-50 border-gray-200';
+        // Анонимные имена
+        var displayName = isMe ? 'Ты' : 'Игрок ' + (i + 1);
         html += '<div class="flex items-center gap-3 p-3 rounded-xl border-2 ' + bg + '">' +
           '<div class="text-2xl w-10 text-center">' + medal + '</div>' +
-          '<div class="flex-1"><div class="font-bold">' + (l.first_name || l.username || 'Игрок') + '</div>' +
+          '<div class="flex-1"><div class="font-bold">' + displayName + '</div>' +
           '<div class="text-xs text-gray-500">' + this.formatNumber(l.lifetime_shawarmas) + ' 🌯</div></div>' +
           (l.prestige_level > 0 ? '<div class="text-purple-600 font-bold">⭐' + l.prestige_level + '</div>' : '') +
           '</div>';
@@ -301,6 +303,80 @@ var UI = {
     }
     content.innerHTML = html;
     modal.classList.remove('hidden');
+  },
+  
+  // Меню мини-игр
+  openMinigamesMenu: function() {
+    var modal = document.createElement('div');
+    modal.id = 'minigames-modal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    
+    var slicerBest = localStorage.getItem('slicer_best') || 0;
+    
+    modal.innerHTML = 
+      '<div class="bg-white rounded-3xl p-6 max-w-sm mx-4">' +
+        '<div class="text-center mb-4">' +
+          '<div class="text-4xl mb-2">🎮</div>' +
+          '<h2 class="text-2xl font-bold text-gray-800">Мини-игры</h2>' +
+          '<p class="text-gray-500 text-sm">Играй и получай бонусы!</p>' +
+        '</div>' +
+        '<div class="space-y-3">' +
+          // Слайсер
+          '<button data-action="open-slicer" class="w-full p-4 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-xl text-left hover:from-green-500 hover:to-emerald-600 transition-all">' +
+            '<div class="flex items-center gap-3">' +
+              '<div class="text-4xl">🔪</div>' +
+              '<div class="flex-1">' +
+                '<div class="font-bold text-lg">Слайсер</div>' +
+                '<div class="text-sm opacity-90">Нарезай ингредиенты!</div>' +
+                '<div class="text-xs opacity-75">Рекорд: ' + slicerBest + '</div>' +
+              '</div>' +
+              '<div class="text-2xl">▶</div>' +
+            '</div>' +
+          '</button>' +
+          // Дуэли (скоро)
+          '<div class="w-full p-4 bg-gray-100 text-gray-400 rounded-xl text-left opacity-60">' +
+            '<div class="flex items-center gap-3">' +
+              '<div class="text-4xl">⚔️</div>' +
+              '<div class="flex-1">' +
+                '<div class="font-bold text-lg">Дуэли</div>' +
+                '<div class="text-sm">Соревнуйся с другими!</div>' +
+                '<div class="text-xs">🔒 Скоро</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          // Рулетка (скоро)
+          '<div class="w-full p-4 bg-gray-100 text-gray-400 rounded-xl text-left opacity-60">' +
+            '<div class="flex items-center gap-3">' +
+              '<div class="text-4xl">🎰</div>' +
+              '<div class="flex-1">' +
+                '<div class="font-bold text-lg">Рулетка</div>' +
+                '<div class="text-sm">Испытай удачу!</div>' +
+                '<div class="text-xs">🔒 Скоро</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<button data-action="close-minigames" class="w-full mt-4 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300">Закрыть</button>' +
+      '</div>';
+    
+    document.body.appendChild(modal);
+    
+    // Обработчики
+    modal.querySelector('[data-action="close-minigames"]').onclick = function() {
+      modal.remove();
+    };
+    
+    modal.querySelector('[data-action="open-slicer"]').onclick = function() {
+      modal.remove();
+      if (typeof Slicer !== 'undefined') {
+        Slicer.openMenu();
+      }
+    };
+    
+    // Закрыть по клику на фон
+    modal.onclick = function(e) {
+      if (e.target === modal) modal.remove();
+    };
   },
   
   render: function(force) {
@@ -335,6 +411,7 @@ var UI = {
           '<h1 class="text-2xl font-bold">🌯 Империя Шаурмы</h1>' +
           '<div class="flex gap-2">' +
             '<span title="' + (Game.cloudSaveEnabled ? 'Облако' : 'Локально') + '">' + cloud + '</span>' +
+            '<button data-action="open-minigames" class="bg-green-500 hover:bg-green-600 px-2 py-1 rounded text-sm">🎮</button>' +
             (Game.cloudSaveEnabled ? '<button data-action="show-leaderboard" class="bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded text-sm">🏆</button>' : '') +
             (canPrestige ? '<button data-action="open-prestige" class="bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded text-sm golden-shine">⭐</button>' : '') +
           '</div>' +
@@ -375,6 +452,7 @@ var UI = {
         '</div>' +
       '</div>' +
     '</div>';
+    
     
     document.getElementById('app').innerHTML = html;
   },
