@@ -83,13 +83,47 @@ var UI = {
     else if (tab === 'achievements') el.innerHTML = this.renderAchievements();
   },
   
-  showFloatingNumber: function(x, y, value) {
+  showFloatingNumber: function(x, y, value, suffix) {
     var div = document.createElement('div');
-    div.className = 'float-number fixed text-3xl font-bold text-orange-600 z-50';
-    div.textContent = '+' + this.formatNumber(value);
+    var hasCombo = suffix && suffix !== '';
+    var colorClass = hasCombo ? 'text-yellow-500' : 'text-orange-600';
+    var sizeClass = hasCombo ? 'text-4xl' : 'text-3xl';
+    
+    div.className = 'float-number fixed font-bold z-50 ' + sizeClass + ' ' + colorClass;
+    div.textContent = '+' + this.formatNumber(value) + (suffix ? ' ' + suffix : '');
     div.style.cssText = 'left:' + x + 'px;top:' + y + 'px;text-shadow:2px 2px 4px rgba(0,0,0,0.3)';
     document.body.appendChild(div);
     setTimeout(function() { div.remove(); }, 1000);
+  },
+  
+  // Обновление индикатора комбо
+  updateComboIndicator: function(count, multiplier) {
+    var indicator = document.getElementById('combo-indicator');
+    
+    if (count < 3) {
+      // Скрываем при низком комбо
+      if (indicator) indicator.style.opacity = '0';
+      return;
+    }
+    
+    if (!indicator) {
+      // Создаём индикатор если его нет
+      indicator = document.createElement('div');
+      indicator.id = 'combo-indicator';
+      indicator.className = 'fixed top-32 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-full font-bold shadow-lg z-30 transition-all';
+      document.body.appendChild(indicator);
+    }
+    
+    indicator.style.opacity = '1';
+    indicator.innerHTML = '🔥 КОМБО x' + multiplier.toFixed(1) + ' (' + count + ')';
+    
+    // Эффект пульсации при высоком комбо
+    if (multiplier >= 3) {
+      indicator.style.transform = 'translateX(-50%) scale(1.1)';
+      setTimeout(function() {
+        indicator.style.transform = 'translateX(-50%) scale(1)';
+      }, 100);
+    }
   },
   
   createParticles: function(x, y, count, emoji) {
