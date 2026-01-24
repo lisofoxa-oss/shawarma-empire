@@ -1,12 +1,9 @@
-// Отрисовка интерфейса
-// Исправлено для совместимости с мобильными устройствами
+// Отрисовка интерфейса v2.0
+// js/ui.js
 
 var UI = {
-  lastRenderTime: 0,
-  renderThrottle: 500,
   isInitialized: false,
   
-  // Форматирование чисел
   formatNumber: function(num) {
     if (num === undefined || num === null || isNaN(num)) return '0';
     if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
@@ -16,475 +13,344 @@ var UI = {
     return Math.floor(num).toString();
   },
   
-  // Обновить только счётчики
   updateCounters: function() {
     var state = Game.state;
+    var el;
     
-    var shawarmasEl = document.getElementById('counter-shawarmas');
-    var perClickEl = document.getElementById('counter-perclick');
-    var perSecondEl = document.getElementById('counter-persecond');
+    el = document.getElementById('counter-shawarmas');
+    if (el) el.textContent = this.formatNumber(state.shawarmas);
     
-    if (shawarmasEl) shawarmasEl.textContent = this.formatNumber(state.shawarmas);
-    if (perClickEl) perClickEl.textContent = '+' + this.formatNumber(state.perClick);
-    if (perSecondEl) perSecondEl.textContent = '+' + this.formatNumber(state.perSecond) + '/с';
+    el = document.getElementById('counter-perclick');
+    if (el) el.textContent = '+' + this.formatNumber(state.perClick);
     
-    var totalEl = document.getElementById('counter-total');
-    var lifetimeEl = document.getElementById('counter-lifetime');
-    var clicksEl = document.getElementById('counter-clicks');
+    el = document.getElementById('counter-persecond');
+    if (el) el.textContent = '+' + this.formatNumber(state.perSecond) + '/с';
     
-    if (totalEl) totalEl.textContent = this.formatNumber(state.totalShawarmas);
-    if (lifetimeEl) lifetimeEl.textContent = this.formatNumber(state.lifetimeShawarmas);
-    if (clicksEl) clicksEl.textContent = state.clickCount;
+    el = document.getElementById('counter-total');
+    if (el) el.textContent = this.formatNumber(state.totalShawarmas);
+    
+    el = document.getElementById('counter-lifetime');
+    if (el) el.textContent = this.formatNumber(state.lifetimeShawarmas);
+    
+    el = document.getElementById('counter-clicks');
+    if (el) el.textContent = state.clickCount;
   },
   
-  // Обновить состояние кнопок
   updateButtonStates: function() {
     var state = Game.state;
-    var self = this;
     var discount = Game.getBuildingDiscount();
+    var btns, i, btn, id, item, cost, canBuy;
     
-    // Обновляем кнопки зданий
-    var buildingBtns = document.querySelectorAll('[data-action="buy-building"]');
-    for (var i = 0; i < buildingBtns.length; i++) {
-      var btn = buildingBtns[i];
-      var buildingId = parseInt(btn.dataset.id, 10);
-      var building = Game.findBuilding(buildingId);
-      if (!building) continue;
-      
-      var finalCost = Math.floor(building.cost * discount);
-      var canBuy = state.shawarmas >= finalCost;
-      
-      if (canBuy) {
+    btns = document.querySelectorAll('[data-action="buy-building"]');
+    for (i = 0; i < btns.length; i++) {
+      btn = btns[i];
+      id = parseInt(btn.dataset.id, 10);
+      item = Game.findBuilding(id);
+      if (!item) continue;
+      cost = Math.floor(item.cost * discount);
+      canBuy = state.shawarmas >= cost;
+      btn.disabled = !canBuy;
+      btn.className = canBuy
+        ? 'w-full p-3 rounded-xl text-left bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-400 cursor-pointer shadow-md'
+        : 'w-full p-3 rounded-xl text-left bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed';
+    }
+    
+    btns = document.querySelectorAll('[data-action="buy-upgrade"]');
+    for (i = 0; i < btns.length; i++) {
+      btn = btns[i];
+      id = parseInt(btn.dataset.id, 10);
+      item = Game.findUpgrade(id);
+      if (!item) continue;
+      if (item.purchased) {
+        btn.disabled = true;
+        btn.className = 'w-full p-3 rounded-xl text-left bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-400';
+      } else if (state.shawarmas >= item.cost) {
         btn.disabled = false;
-        btn.className = 'w-full p-3 rounded-xl text-left transition-all transform bg-gradient-to-r from-orange-50 to-yellow-50 hover:from-orange-100 hover:to-yellow-100 border-2 border-orange-400 cursor-pointer shadow-md hover:shadow-xl hover:scale-102 active:scale-98';
+        btn.className = 'w-full p-3 rounded-xl text-left bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-400 cursor-pointer shadow-md';
       } else {
         btn.disabled = true;
-        btn.className = 'w-full p-3 rounded-xl text-left transition-all transform bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed';
-      }
-    }
-    
-    // Обновляем кнопки улучшений
-    var upgradeBtns = document.querySelectorAll('[data-action="buy-upgrade"]');
-    for (var j = 0; j < upgradeBtns.length; j++) {
-      var uBtn = upgradeBtns[j];
-      var upgradeId = parseInt(uBtn.dataset.id, 10);
-      var upgrade = Game.findUpgrade(upgradeId);
-      if (!upgrade) continue;
-      
-      if (upgrade.purchased) {
-        uBtn.disabled = true;
-        uBtn.className = 'w-full p-3 rounded-xl text-left transition-all transform bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-400 cursor-default';
-      } else if (state.shawarmas >= upgrade.cost) {
-        uBtn.disabled = false;
-        uBtn.className = 'w-full p-3 rounded-xl text-left transition-all transform bg-gradient-to-r from-orange-50 to-yellow-50 hover:from-orange-100 hover:to-yellow-100 border-2 border-orange-400 cursor-pointer shadow-md hover:shadow-xl hover:scale-102 active:scale-98';
-      } else {
-        uBtn.disabled = true;
-        uBtn.className = 'w-full p-3 rounded-xl text-left transition-all transform bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed';
+        btn.className = 'w-full p-3 rounded-xl text-left bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed';
       }
     }
   },
   
-  // Принудительное обновление таба
   forceUpdateTab: function() {
-    var state = Game.state;
-    var tabContent = document.getElementById('tab-content');
-    
-    if (!tabContent) return;
-    
-    if (state.currentTab === 'buildings') {
-      tabContent.innerHTML = this.renderBuildings();
-    } else if (state.currentTab === 'upgrades') {
-      tabContent.innerHTML = this.renderUpgrades();
-    } else if (state.currentTab === 'achievements') {
-      tabContent.innerHTML = this.renderAchievements();
-    }
+    var el = document.getElementById('tab-content');
+    if (!el) return;
+    var tab = Game.state.currentTab;
+    if (tab === 'buildings') el.innerHTML = this.renderBuildings();
+    else if (tab === 'upgrades') el.innerHTML = this.renderUpgrades();
+    else if (tab === 'achievements') el.innerHTML = this.renderAchievements();
   },
   
-  // Показать всплывающее число
   showFloatingNumber: function(x, y, value) {
     var div = document.createElement('div');
     div.className = 'float-number fixed text-3xl font-bold text-orange-600 z-50';
     div.textContent = '+' + this.formatNumber(value);
-    div.style.left = x + 'px';
-    div.style.top = y + 'px';
-    div.style.textShadow = '2px 2px 4px rgba(0,0,0,0.3)';
+    div.style.cssText = 'left:' + x + 'px;top:' + y + 'px;text-shadow:2px 2px 4px rgba(0,0,0,0.3)';
     document.body.appendChild(div);
-    setTimeout(function() {
-      if (div.parentNode) div.parentNode.removeChild(div);
-    }, 1000);
+    setTimeout(function() { div.remove(); }, 1000);
   },
   
-  // Создать частицы
   createParticles: function(x, y, count, emoji) {
     var container = document.getElementById('particles-container');
     if (!container) return;
-    
     emoji = emoji || '🌯';
-    
     for (var i = 0; i < count; i++) {
-      var particle = document.createElement('div');
-      particle.className = 'particle fixed text-2xl';
-      particle.textContent = emoji;
-      particle.style.left = x + 'px';
-      particle.style.top = y + 'px';
-      
+      var p = document.createElement('div');
+      p.className = 'particle fixed text-2xl';
+      p.textContent = emoji;
+      p.style.left = x + 'px';
+      p.style.top = y + 'px';
       var angle = (Math.PI * 2 * i) / count;
-      var distance = 50 + Math.random() * 50;
-      var tx = Math.cos(angle) * distance;
-      var ty = Math.sin(angle) * distance;
-      
-      particle.style.setProperty('--tx', tx + 'px');
-      particle.style.setProperty('--ty', ty + 'px');
-      
-      container.appendChild(particle);
-      
-      (function(p) {
-        setTimeout(function() {
-          if (p.parentNode) p.parentNode.removeChild(p);
-        }, 800);
-      })(particle);
+      var dist = 50 + Math.random() * 50;
+      p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+      p.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+      container.appendChild(p);
+      (function(el) { setTimeout(function() { el.remove(); }, 800); })(p);
     }
   },
   
-  // Показать всплывающее уведомление
   showAchievementPopup: function(ach) {
     var container = document.getElementById('achievements-container');
     if (!container) return;
-    
-    var self = this;
     var div = document.createElement('div');
     div.className = 'achievement-popup bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-4 rounded-lg shadow-2xl max-w-xs';
-    
-    var rewardText = ach.reward > 0 ? '<div class="text-sm font-bold mt-1">+' + this.formatNumber(ach.reward) + ' 🌯</div>' : '';
-    var title = ach.reward > 0 ? 'Достижение!' : 'Уведомление';
-    var achEmoji = ach.emoji || '🏆';
-    
-    div.innerHTML = '<div class="font-bold text-lg">' + achEmoji + ' ' + title + '</div>' +
+    var reward = ach.reward > 0 ? '<div class="text-sm font-bold mt-1">+' + this.formatNumber(ach.reward) + ' 🌯</div>' : '';
+    div.innerHTML = '<div class="font-bold text-lg">' + (ach.emoji || '🏆') + ' ' + (ach.reward > 0 ? 'Достижение!' : '') + '</div>' +
       '<div class="font-semibold">' + ach.name + '</div>' +
-      '<div class="text-sm opacity-90">' + ach.desc + '</div>' +
-      rewardText;
-    
+      '<div class="text-sm opacity-90">' + ach.desc + '</div>' + reward;
     container.appendChild(div);
-    
     setTimeout(function() {
       div.style.opacity = '0';
       div.style.transition = 'opacity 0.5s';
-      setTimeout(function() {
-        if (div.parentNode) div.parentNode.removeChild(div);
-      }, 500);
+      setTimeout(function() { div.remove(); }, 500);
     }, 3000);
   },
   
-  // Основная отрисовка интерфейса
+  showLeaderboard: function(leaders) {
+    var modal = document.getElementById('leaderboard-modal');
+    var content = document.getElementById('leaderboard-content');
+    if (!modal || !content) return;
+    
+    var html = '';
+    if (!leaders || leaders.length === 0) {
+      html = '<div class="text-gray-500 py-8">Пока нет игроков</div>';
+    } else {
+      html = '<div class="space-y-2">';
+      for (var i = 0; i < leaders.length; i++) {
+        var l = leaders[i];
+        var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.';
+        var isMe = Game.userInfo.id == l.user_id;
+        var bg = isMe ? 'bg-orange-100 border-orange-400' : 'bg-gray-50 border-gray-200';
+        html += '<div class="flex items-center gap-3 p-3 rounded-xl border-2 ' + bg + '">' +
+          '<div class="text-2xl w-10 text-center">' + medal + '</div>' +
+          '<div class="flex-1"><div class="font-bold">' + (l.first_name || l.username || 'Игрок') + '</div>' +
+          '<div class="text-xs text-gray-500">' + this.formatNumber(l.lifetime_shawarmas) + ' 🌯</div></div>' +
+          (l.prestige_level > 0 ? '<div class="text-purple-600 font-bold">⭐' + l.prestige_level + '</div>' : '') +
+          '</div>';
+      }
+      html += '</div>';
+    }
+    content.innerHTML = html;
+    modal.classList.remove('hidden');
+  },
+  
   render: function(force) {
     if (this.isInitialized && !force) {
       this.updateCounters();
       return;
     }
-    
     this.isInitialized = true;
     
     var state = Game.state;
-    var unlockedAchievements = 0;
+    var unlocked = 0;
     for (var i = 0; i < state.achievements.length; i++) {
-      if (state.achievements[i].unlocked) unlockedAchievements++;
+      if (state.achievements[i].unlocked) unlocked++;
     }
+    
     var canPrestige = state.totalShawarmas >= 1000000;
-    
-    var prestigeBtn = canPrestige 
-      ? '<button data-action="open-prestige" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg font-bold text-sm golden-shine">⭐ Престиж</button>' 
-      : '';
-    
-    var browserModeNotice = !Game.isTelegram 
-      ? '<div class="text-center text-xs opacity-75 mb-2">🌐 Режим браузера</div>' 
-      : '';
-    
-    var prestigeStatus = state.prestigeLevel > 0 
-      ? '<div class="text-center mt-2 text-sm bg-purple-600 bg-opacity-50 rounded-lg py-1">⭐ Престиж: ' + state.prestigeLevel + ' (x' + state.prestigeBonus.toFixed(2) + ' множитель)</div>' 
-      : '';
-    
+    var cloud = Game.cloudSaveEnabled ? '☁️' : '💾';
     var tabContent = '';
-    if (state.currentTab === 'buildings') {
-      tabContent = this.renderBuildings();
-    } else if (state.currentTab === 'upgrades') {
-      tabContent = this.renderUpgrades();
-    } else if (state.currentTab === 'achievements') {
-      tabContent = this.renderAchievements();
-    }
+    if (state.currentTab === 'buildings') tabContent = this.renderBuildings();
+    else if (state.currentTab === 'upgrades') tabContent = this.renderUpgrades();
+    else if (state.currentTab === 'achievements') tabContent = this.renderAchievements();
     
-    var buildingsTabClass = state.currentTab === 'buildings' 
-      ? 'bg-gradient-to-b from-orange-500 to-orange-600 text-white shadow-lg' 
-      : 'bg-gray-100 text-gray-700 hover:bg-gray-200';
-    var upgradesTabClass = state.currentTab === 'upgrades' 
-      ? 'bg-gradient-to-b from-orange-500 to-orange-600 text-white shadow-lg' 
-      : 'bg-gray-100 text-gray-700 hover:bg-gray-200';
-    var achievementsTabClass = state.currentTab === 'achievements' 
-      ? 'bg-gradient-to-b from-orange-500 to-orange-600 text-white shadow-lg' 
-      : 'bg-gray-100 text-gray-700 hover:bg-gray-200';
+    var tabCls = function(t) {
+      return state.currentTab === t 
+        ? 'bg-gradient-to-b from-orange-500 to-orange-600 text-white' 
+        : 'bg-gray-100 text-gray-700';
+    };
     
-    var achievementsLabel = unlockedAchievements > 0 ? '(' + unlockedAchievements + ')' : 'Награды';
-    
-    var appEl = document.getElementById('app');
-    if (appEl) {
-      appEl.innerHTML = 
-        '<div class="min-h-screen pb-20">' +
-          '<!-- Шапка -->' +
-          '<div class="bg-gradient-to-r from-orange-500 via-red-500 to-orange-600 text-white p-4 shadow-lg sticky top-0 z-50">' +
-            '<div class="flex justify-between items-center mb-2">' +
-              '<h1 class="text-3xl font-bold">🌯 Империя Шаурмы</h1>' +
-              prestigeBtn +
-            '</div>' +
-            browserModeNotice +
-            '<div class="grid grid-cols-3 gap-2 text-center">' +
-              '<div class="bg-white bg-opacity-20 rounded-lg p-2">' +
-                '<div id="counter-shawarmas" class="text-2xl font-bold">' + this.formatNumber(state.shawarmas) + '</div>' +
-                '<div class="text-xs opacity-90">Шаурмы</div>' +
-              '</div>' +
-              '<div class="bg-white bg-opacity-20 rounded-lg p-2">' +
-                '<div id="counter-perclick" class="text-lg font-bold">+' + this.formatNumber(state.perClick) + '</div>' +
-                '<div class="text-xs opacity-90">За клик</div>' +
-              '</div>' +
-              '<div class="bg-white bg-opacity-20 rounded-lg p-2">' +
-                '<div id="counter-persecond" class="text-lg font-bold">+' + this.formatNumber(state.perSecond) + '/с</div>' +
-                '<div class="text-xs opacity-90">В секунду</div>' +
-              '</div>' +
-            '</div>' +
-            prestigeStatus +
+    var html = '<div class="min-h-screen pb-20">' +
+      '<div class="bg-gradient-to-r from-orange-500 via-red-500 to-orange-600 text-white p-4 shadow-lg sticky top-0 z-30">' +
+        '<div class="flex justify-between items-center mb-2">' +
+          '<h1 class="text-2xl font-bold">🌯 Империя Шаурмы</h1>' +
+          '<div class="flex gap-2">' +
+            '<span title="' + (Game.cloudSaveEnabled ? 'Облако' : 'Локально') + '">' + cloud + '</span>' +
+            (Game.cloudSaveEnabled ? '<button data-action="show-leaderboard" class="bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded text-sm">🏆</button>' : '') +
+            (canPrestige ? '<button data-action="open-prestige" class="bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded text-sm golden-shine">⭐</button>' : '') +
           '</div>' +
-          
-          '<div class="max-w-2xl mx-auto p-4 space-y-4">' +
-            '<!-- Кликер -->' +
-            '<div class="bg-white rounded-2xl p-8 shadow-xl relative overflow-hidden">' +
-              '<div class="flex justify-center relative z-10">' +
-                '<button id="shawarma-btn" data-action="click-shawarma" class="text-9xl transform hover:scale-105 active:scale-95 transition-transform cursor-pointer select-none filter drop-shadow-2xl">' +
-                  '🌯' +
-                '</button>' +
-              '</div>' +
-              '<p class="text-center text-gray-600 mt-4 font-semibold">Нажми на шаурму!</p>' +
-              '<div class="text-center text-sm text-gray-500 mt-2 space-y-1">' +
-                '<div>Всего создано: <span id="counter-total">' + this.formatNumber(state.totalShawarmas) + '</span></div>' +
-                '<div>За всё время: <span id="counter-lifetime">' + this.formatNumber(state.lifetimeShawarmas) + '</span> | Кликов: <span id="counter-clicks">' + state.clickCount + '</span></div>' +
-              '</div>' +
-            '</div>' +
-            
-            '<!-- Табы и контент -->' +
-            '<div class="bg-white rounded-2xl shadow-xl overflow-hidden">' +
-              '<div class="grid grid-cols-3 gap-0 border-b-2 border-gray-200">' +
-                '<button data-action="switch-tab" data-tab="buildings" class="p-3 font-semibold transition-all ' + buildingsTabClass + '">' +
-                  '🏪 Магазин' +
-                '</button>' +
-                '<button data-action="switch-tab" data-tab="upgrades" class="p-3 font-semibold transition-all ' + upgradesTabClass + '">' +
-                  '⚡ Улучшения' +
-                '</button>' +
-                '<button data-action="switch-tab" data-tab="achievements" class="p-3 font-semibold transition-all ' + achievementsTabClass + '">' +
-                  '🏆 ' + achievementsLabel +
-                '</button>' +
-              '</div>' +
-              '<div id="tab-content" class="p-4 max-h-96 overflow-y-auto">' +
-                tabContent +
-              '</div>' +
-            '</div>' +
+        '</div>' +
+        '<div class="grid grid-cols-3 gap-2 text-center">' +
+          '<div class="bg-white bg-opacity-20 rounded-lg p-2">' +
+            '<div id="counter-shawarmas" class="text-xl font-bold">' + this.formatNumber(state.shawarmas) + '</div>' +
+            '<div class="text-xs">Шаурмы</div>' +
           '</div>' +
-        '</div>';
-    }
+          '<div class="bg-white bg-opacity-20 rounded-lg p-2">' +
+            '<div id="counter-perclick" class="font-bold">+' + this.formatNumber(state.perClick) + '</div>' +
+            '<div class="text-xs">За клик</div>' +
+          '</div>' +
+          '<div class="bg-white bg-opacity-20 rounded-lg p-2">' +
+            '<div id="counter-persecond" class="font-bold">+' + this.formatNumber(state.perSecond) + '/с</div>' +
+            '<div class="text-xs">В секунду</div>' +
+          '</div>' +
+        '</div>' +
+        (state.prestigeLevel > 0 ? '<div class="text-center mt-2 text-sm bg-purple-600 bg-opacity-50 rounded py-1">⭐ Престиж ' + state.prestigeLevel + ' (x' + state.prestigeBonus.toFixed(2) + ')</div>' : '') +
+      '</div>' +
+      '<div class="max-w-2xl mx-auto p-4 space-y-4">' +
+        '<div class="bg-white rounded-2xl p-6 shadow-xl text-center">' +
+          '<button id="shawarma-btn" data-action="click-shawarma" class="text-8xl select-none cursor-pointer transform hover:scale-105 active:scale-95 transition-transform">🌯</button>' +
+          '<p class="text-gray-600 mt-2 font-semibold">Нажми на шаурму!</p>' +
+          '<div class="text-sm text-gray-500 mt-2">' +
+            'Всего: <span id="counter-total">' + this.formatNumber(state.totalShawarmas) + '</span> | ' +
+            'За всё время: <span id="counter-lifetime">' + this.formatNumber(state.lifetimeShawarmas) + '</span> | ' +
+            'Кликов: <span id="counter-clicks">' + state.clickCount + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="bg-white rounded-2xl shadow-xl overflow-hidden">' +
+          '<div class="grid grid-cols-3 border-b-2 border-gray-200">' +
+            '<button data-action="switch-tab" data-tab="buildings" class="p-3 font-semibold ' + tabCls('buildings') + '">🏪 Магазин</button>' +
+            '<button data-action="switch-tab" data-tab="upgrades" class="p-3 font-semibold ' + tabCls('upgrades') + '">⚡ Апгрейды</button>' +
+            '<button data-action="switch-tab" data-tab="achievements" class="p-3 font-semibold ' + tabCls('achievements') + '">🏆 ' + (unlocked > 0 ? '(' + unlocked + ')' : '') + '</button>' +
+          '</div>' +
+          '<div id="tab-content" class="p-4 max-h-80 overflow-y-auto">' + tabContent + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+    
+    document.getElementById('app').innerHTML = html;
   },
   
-  // Отрисовка магазина зданий
   renderBuildings: function() {
     var state = Game.state;
-    var self = this;
     var discount = Game.getBuildingDiscount();
     var html = '<div class="space-y-2">';
     
     for (var i = 0; i < state.buildings.length; i++) {
-      var building = state.buildings[i];
-      var finalCost = Math.floor(building.cost * discount);
-      var canBuy = state.shawarmas >= finalCost;
-      
-      var btnClass = canBuy
-        ? 'bg-gradient-to-r from-orange-50 to-yellow-50 hover:from-orange-100 hover:to-yellow-100 border-2 border-orange-400 cursor-pointer shadow-md hover:shadow-xl hover:scale-102 active:scale-98'
+      var b = state.buildings[i];
+      var cost = Math.floor(b.cost * discount);
+      var canBuy = state.shawarmas >= cost;
+      var cls = canBuy
+        ? 'bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-400 cursor-pointer shadow-md'
         : 'bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed';
       
-      var discountText = discount < 1 
-        ? '<div class="text-xs text-green-600 font-semibold">-' + Math.floor((1 - discount) * 100) + '%</div>' 
-        : '';
-      
-      html += '<button data-action="buy-building" data-id="' + building.id + '" ' + 
-        (canBuy ? '' : 'disabled') + 
-        ' class="w-full p-3 rounded-xl text-left transition-all transform ' + btnClass + '">' +
-        '<div class="flex justify-between items-center pointer-events-none">' +
-          '<div class="flex items-center gap-3 flex-1">' +
-            '<div class="text-4xl filter drop-shadow-lg">' + building.emoji + '</div>' +
-            '<div class="flex-1">' +
-              '<div class="font-bold text-lg">' + building.name + '</div>' +
-              '<div class="text-xs text-gray-600">' + building.desc + '</div>' +
-              '<div class="text-sm text-orange-600 font-semibold mt-1">+' + this.formatNumber(building.production * state.prestigeBonus) + '/с</div>' +
-              '<div class="text-xs text-gray-500">Куплено: ' + building.owned + '</div>' +
+      html += '<button data-action="buy-building" data-id="' + b.id + '" ' + (canBuy ? '' : 'disabled') +
+        ' class="w-full p-3 rounded-xl text-left ' + cls + '">' +
+        '<div class="flex justify-between items-center">' +
+          '<div class="flex items-center gap-3">' +
+            '<span class="text-3xl">' + b.emoji + '</span>' +
+            '<div>' +
+              '<div class="font-bold">' + b.name + '</div>' +
+              '<div class="text-xs text-gray-500">' + b.desc + '</div>' +
+              '<div class="text-sm text-orange-600">+' + this.formatNumber(b.production * state.prestigeBonus) + '/с</div>' +
+              '<div class="text-xs text-gray-400">Куплено: ' + b.owned + '</div>' +
             '</div>' +
           '</div>' +
           '<div class="text-right">' +
-            '<div class="text-orange-600 font-bold text-xl">' + this.formatNumber(finalCost) + '</div>' +
+            '<div class="text-orange-600 font-bold">' + this.formatNumber(cost) + '</div>' +
             '<div class="text-xs text-gray-500">🌯</div>' +
-            discountText +
           '</div>' +
         '</div>' +
       '</button>';
     }
     
-    html += '</div>';
-    return html;
+    return html + '</div>';
   },
   
-  // Отрисовка улучшений
   renderUpgrades: function() {
     var state = Game.state;
-    var self = this;
-    
-    var clickUpgrades = [];
-    var productionUpgrades = [];
-    var discountUpgrades = [];
+    var html = '<div class="space-y-2">';
     
     for (var i = 0; i < state.upgrades.length; i++) {
       var u = state.upgrades[i];
-      if (u.type === 'click') clickUpgrades.push(u);
-      else if (u.type === 'production') productionUpgrades.push(u);
-      else if (u.type === 'discount') discountUpgrades.push(u);
-    }
-    
-    var html = '<div class="space-y-4">';
-    
-    // Сила клика
-    html += '<div><h3 class="font-bold text-lg mb-2 text-orange-600 flex items-center gap-2">🖱️ Сила клика</h3><div class="space-y-2">';
-    for (var j = 0; j < clickUpgrades.length; j++) {
-      html += this.renderUpgradeButton(clickUpgrades[j]);
-    }
-    html += '</div></div>';
-    
-    // Производство
-    html += '<div><h3 class="font-bold text-lg mb-2 text-orange-600 flex items-center gap-2">⚙️ Производство</h3><div class="space-y-2">';
-    for (var k = 0; k < productionUpgrades.length; k++) {
-      html += this.renderUpgradeButton(productionUpgrades[k]);
-    }
-    html += '</div></div>';
-    
-    // Экономия
-    html += '<div><h3 class="font-bold text-lg mb-2 text-orange-600 flex items-center gap-2">💰 Экономия</h3><div class="space-y-2">';
-    for (var l = 0; l < discountUpgrades.length; l++) {
-      html += this.renderUpgradeButton(discountUpgrades[l]);
-    }
-    html += '</div></div>';
-    
-    html += '</div>';
-    return html;
-  },
-  
-  // Отрисовка кнопки улучшения
-  renderUpgradeButton: function(upgrade) {
-    var state = Game.state;
-    
-    var btnClass, descText;
-    
-    if (upgrade.purchased) {
-      btnClass = 'bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-400 cursor-default';
-      descText = '✅ Куплено';
-    } else if (state.shawarmas >= upgrade.cost) {
-      btnClass = 'bg-gradient-to-r from-orange-50 to-yellow-50 hover:from-orange-100 hover:to-yellow-100 border-2 border-orange-400 cursor-pointer shadow-md hover:shadow-xl hover:scale-102 active:scale-98';
-    } else {
-      btnClass = 'bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed';
-    }
-    
-    if (!upgrade.purchased) {
-      if (upgrade.type === 'click') {
-        descText = '+' + upgrade.clickBonus + ' за клик';
-      } else if (upgrade.type === 'production') {
-        descText = 'x' + upgrade.productionMultiplier + ' производство';
+      var cls, desc;
+      
+      if (u.purchased) {
+        cls = 'bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-400';
+        desc = '✅ Куплено';
+      } else if (state.shawarmas >= u.cost) {
+        cls = 'bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-400 cursor-pointer shadow-md';
       } else {
-        descText = Math.floor((1 - upgrade.buildingDiscount) * 100) + '% скидка';
+        cls = 'bg-gray-100 border-2 border-gray-300 opacity-50 cursor-not-allowed';
       }
+      
+      if (!u.purchased) {
+        if (u.type === 'click') desc = '+' + u.clickBonus + ' за клик';
+        else if (u.type === 'production') desc = 'x' + u.productionMultiplier + ' производство';
+        else desc = '-' + Math.floor((1 - u.buildingDiscount) * 100) + '% стоимость';
+      }
+      
+      html += '<button data-action="buy-upgrade" data-id="' + u.id + '" ' +
+        (u.purchased || state.shawarmas < u.cost ? 'disabled' : '') +
+        ' class="w-full p-3 rounded-xl text-left ' + cls + '">' +
+        '<div class="flex justify-between items-center">' +
+          '<div class="flex items-center gap-3">' +
+            '<span class="text-2xl">' + u.emoji + '</span>' +
+            '<div>' +
+              '<div class="font-bold">' + u.name + '</div>' +
+              '<div class="text-sm text-gray-600">' + desc + '</div>' +
+            '</div>' +
+          '</div>' +
+          (u.purchased ? '' : '<div class="text-orange-600 font-bold">' + this.formatNumber(u.cost) + ' 🌯</div>') +
+        '</div>' +
+      '</button>';
     }
     
-    var costText = !upgrade.purchased 
-      ? '<div class="text-orange-600 font-bold text-lg">' + this.formatNumber(upgrade.cost) + ' 🌯</div>' 
-      : '';
-    
-    return '<button data-action="buy-upgrade" data-id="' + upgrade.id + '" ' +
-      ((upgrade.purchased || state.shawarmas < upgrade.cost) ? 'disabled' : '') +
-      ' class="w-full p-3 rounded-xl text-left transition-all transform ' + btnClass + '">' +
-      '<div class="flex justify-between items-center pointer-events-none">' +
-        '<div class="flex items-center gap-3">' +
-          '<div class="text-3xl filter drop-shadow-lg">' + upgrade.emoji + '</div>' +
-          '<div>' +
-            '<div class="font-semibold text-lg">' + upgrade.name + '</div>' +
-            '<div class="text-sm text-gray-600">' + descText + '</div>' +
-          '</div>' +
-        '</div>' +
-        costText +
-      '</div>' +
-    '</button>';
+    return html + '</div>';
   },
   
-  // Отрисовка достижений
   renderAchievements: function() {
     var state = Game.state;
-    var self = this;
     var totalBuildings = Game.getTotalBuildings();
-    
-    var unlockedCount = 0;
-    for (var i = 0; i < state.achievements.length; i++) {
-      if (state.achievements[i].unlocked) unlockedCount++;
+    var unlocked = 0;
+    for (var j = 0; j < state.achievements.length; j++) {
+      if (state.achievements[j].unlocked) unlocked++;
     }
     
-    var html = '<div class="space-y-3">' +
-      '<div class="text-center p-3 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-xl">' +
-        '<div class="text-lg font-bold text-orange-600">' + unlockedCount + ' / ' + state.achievements.length + '</div>' +
-        '<div class="text-sm text-gray-600">Разблокировано достижений</div>' +
+    var html = '<div class="space-y-2">' +
+      '<div class="text-center p-2 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-xl">' +
+        '<span class="font-bold text-orange-600">' + unlocked + '/' + state.achievements.length + '</span> достижений' +
       '</div>';
     
-    for (var j = 0; j < state.achievements.length; j++) {
-      var ach = state.achievements[j];
-      
+    for (var i = 0; i < state.achievements.length; i++) {
+      var a = state.achievements[i];
       var progress = 0;
-      if (ach.type === 'total') progress = state.totalShawarmas;
-      else if (ach.type === 'clicks') progress = state.clickCount;
-      else if (ach.type === 'buildings') progress = totalBuildings;
-      else if (ach.type === 'prestige') progress = state.prestigeLevel;
+      if (a.type === 'total') progress = state.totalShawarmas;
+      else if (a.type === 'clicks') progress = state.clickCount;
+      else if (a.type === 'buildings') progress = totalBuildings;
+      else if (a.type === 'prestige') progress = state.prestigeLevel;
       
-      var percent = Math.min((progress / ach.target) * 100, 100);
+      var pct = Math.min((progress / a.target) * 100, 100);
+      var bg = a.unlocked ? 'bg-gradient-to-r from-yellow-100 to-orange-100 border-yellow-500' : 'bg-gray-50 border-gray-200';
       
-      var achClass = ach.unlocked 
-        ? 'bg-gradient-to-r from-yellow-100 via-orange-100 to-yellow-100 border-2 border-yellow-500 shadow-lg' 
-        : 'bg-gray-50 border-2 border-gray-300 hover:border-gray-400';
-      
-      var achIcon = ach.unlocked ? '🏆' : '🔒';
-      var achNameClass = ach.unlocked ? 'text-orange-600' : '';
-      
-      var progressBar = !ach.unlocked 
-        ? '<div class="mt-2">' +
-            '<div class="flex justify-between text-xs text-gray-600 mb-1">' +
-              '<span>' + this.formatNumber(progress) + ' / ' + this.formatNumber(ach.target) + '</span>' +
-              '<span class="font-semibold">' + percent.toFixed(0) + '%</span>' +
-            '</div>' +
-            '<div class="w-full bg-gray-300 rounded-full h-3 overflow-hidden">' +
-              '<div class="bg-gradient-to-r from-orange-400 to-orange-600 h-3 rounded-full transition-all duration-500 shadow-inner" style="width: ' + percent + '%"></div>' +
-            '</div>' +
-          '</div>'
-        : '<div class="text-green-600 font-bold mt-1 flex items-center gap-1">✨ Разблокировано!</div>';
-      
-      html += '<div class="p-4 rounded-xl transition-all ' + achClass + '">' +
-        '<div class="flex items-start gap-3">' +
-          '<div class="text-4xl filter drop-shadow-lg">' + achIcon + '</div>' +
+      html += '<div class="p-3 rounded-xl border-2 ' + bg + '">' +
+        '<div class="flex items-center gap-3">' +
+          '<span class="text-3xl">' + (a.unlocked ? '🏆' : '🔒') + '</span>' +
           '<div class="flex-1">' +
-            '<div class="font-bold text-lg ' + achNameClass + '">' + ach.name + '</div>' +
-            '<div class="text-sm text-gray-600">' + ach.desc + '</div>' +
-            '<div class="text-sm font-semibold text-orange-600 mt-1">🎁 Награда: +' + this.formatNumber(ach.reward) + ' 🌯</div>' +
-            progressBar +
+            '<div class="font-bold">' + a.name + '</div>' +
+            '<div class="text-xs text-gray-600">' + a.desc + '</div>' +
+            '<div class="text-xs text-orange-600">🎁 +' + this.formatNumber(a.reward) + '</div>' +
+            (a.unlocked ? '<div class="text-green-600 text-xs font-bold">✨ Получено!</div>' :
+              '<div class="mt-1"><div class="w-full bg-gray-300 rounded-full h-2">' +
+              '<div class="bg-orange-500 h-2 rounded-full" style="width:' + pct + '%"></div></div>' +
+              '<div class="text-xs text-gray-500 mt-1">' + this.formatNumber(progress) + '/' + this.formatNumber(a.target) + '</div></div>') +
           '</div>' +
         '</div>' +
       '</div>';
     }
     
-    html += '</div>';
-    return html;
+    return html + '</div>';
   }
 };
 

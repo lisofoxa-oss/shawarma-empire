@@ -1,5 +1,5 @@
-// Основная логика игры
-// Исправлено для совместимости с мобильными устройствами
+// Основная логика игры с облачным сохранением
+// js/game.js v2.0
 
 var Game = {
   // Состояние игры
@@ -21,9 +21,19 @@ var Game = {
     currentTab: 'buildings'
   },
   
+  // Информация о пользователе Telegram
+  userInfo: {
+    id: null,
+    username: null,
+    firstName: null
+  },
+  
   tg: null,
   isTelegram: false,
   isReady: false,
+  cloudSaveEnabled: false,
+  lastCloudSave: 0,
+  cloudSaveInterval: 15000, // Сохранять в облако каждые 15 сек
   
   // Инициализация игры
   init: function() {
@@ -40,29 +50,43 @@ var Game = {
         this.tg.enableClosingConfirmation();
         this.tg.ready();
         console.log('📱 Telegram WebApp обнаружен');
+        
+        // Получаем данные пользователя
+        if (this.tg.initDataUnsafe && this.tg.initDataUnsafe.user) {
+          this.userInfo.id = this.tg.initDataUnsafe.user.id;
+          this.userInfo.username = this.tg.initDataUnsafe.user.username || null;
+          this.userInfo.firstName = this.tg.initDataUnsafe.user.first_name || 'Игрок';
+        }
       }
     } catch (e) {
       console.log('⚠️ Telegram WebApp недоступен:', e.message);
       this.isTelegram = false;
     }
     
-    // Получаем ID пользователя
-    var userId = 'guest_' + Math.floor(Math.random() * 1000000);
-    try {
-      if (this.isTelegram && this.tg.initDataUnsafe && this.tg.initDataUnsafe.user) {
-        userId = 'tg_' + this.tg.initDataUnsafe.user.id;
-      }
-    } catch (e) {
-      console.log('⚠️ Не удалось получить Telegram user id');
+    // Fallback ID для браузера
+    if (!this.userInfo.id) {
+      this.userInfo.id = this.getOrCreateBrowserId();
+      this.userInfo.firstName = 'Гость';
     }
     
-    // Инициализируем подсистемы
+    console.log('👤 Пользователь:', this.userInfo);
+    
+    // Инициализируем звуки
     if (typeof SoundManager !== 'undefined') {
       SoundManager.init();
     }
     
+    // Инициализируем localStorage
     if (typeof GameStorage !== 'undefined') {
-      GameStorage.init(userId);
+      GameStorage.init(this.userInfo.id);
+    }
+    
+    // Инициализируем Supabase
+    if (typeof DB !== 'undefined' && GameConfig.SUPABASE_URL && GameConfig.SUPABASE_KEY) {
+      this.cloudSaveEnabled = DB.init(GameConfig.SUPABASE_URL, GameConfig.SUPABASE_KEY);
+      if (this.cloudSaveEnabled) {
+        DB.setUserId(this.userInfo.id);
+      }
     }
     
     // Копируем конфигурацию
@@ -70,36 +94,41 @@ var Game = {
     this.state.upgrades = JSON.parse(JSON.stringify(GameConfig.upgrades));
     this.state.achievements = JSON.parse(JSON.stringify(GameConfig.achievements));
     
-    // Загружаем сохранение
+    // Загружаем игру (сначала пробуем из облака)
     this.loadGame();
     
-    // Настраиваем делегирование событий
+    // Настраиваем события
     this.setupEventDelegation();
     
     // Запускаем игровые циклы
     this.startGameLoops();
     
     this.isReady = true;
-    console.log('✅ Game.init() завершён успешно');
+    console.log('✅ Game.init() завершён');
   },
   
-  // Настройка делегирования событий
+  // Генерируем ID для браузера
+  getOrCreateBrowserId: function() {
+    var browserId = localStorage.getItem('shawarma_browser_id');
+    if (!browserId) {
+      browserId = 'browser_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
+      localStorage.setItem('shawarma_browser_id', browserId);
+    }
+    return browserId;
+  },
+  
+  // Настройка событий
   setupEventDelegation: function() {
     var self = this;
     
     document.addEventListener('click', function(e) {
-      // Разблокируем аудио при любом клике
       if (typeof SoundManager !== 'undefined') {
         SoundManager.unlock();
       }
       
       var target = e.target;
-      
-      // Ищем элемент с data-action
       while (target && target !== document) {
-        if (target.dataset && target.dataset.action) {
-          break;
-        }
+        if (target.dataset && target.dataset.action) break;
         target = target.parentElement;
       }
       
@@ -134,6 +163,9 @@ var Game = {
         case 'claim-daily':
           self.claimDailyReward();
           break;
+        case 'show-leaderboard':
+          self.showLeaderboard();
+          break;
       }
     });
     
@@ -142,15 +174,105 @@ var Game = {
   
   // Загрузка игры
   loadGame: function() {
-    var saved = null;
+    var self = this;
     
+    // Показываем индикатор загрузки
+    this.showLoadingStatus('Загрузка данных...');
+    
+    // Сначала пробуем загрузить из облака
+    if (this.cloudSaveEnabled) {
+      DB.loadUser(function(cloudData) {
+        if (cloudData) {
+          console.log('☁️ Загружены данные из облака');
+          self.applyCloudData(cloudData);
+          self.finishLoading();
+        } else {
+          // Облако пустое, грузим из localStorage
+          self.loadFromLocalStorage();
+          self.finishLoading();
+        }
+      });
+    } else {
+      // Облако не доступно, грузим локально
+      this.loadFromLocalStorage();
+      this.finishLoading();
+    }
+  },
+  
+  // Показать статус загрузки
+  showLoadingStatus: function(text) {
+    var appEl = document.getElementById('app');
+    if (appEl) {
+      appEl.innerHTML = 
+        '<div class="flex items-center justify-center min-h-screen">' +
+          '<div class="text-center">' +
+            '<div class="text-6xl mb-4 animate-pulse">🌯</div>' +
+            '<div class="text-2xl font-bold text-orange-600">' + text + '</div>' +
+            '<div class="text-sm text-gray-500 mt-2">Подождите немного</div>' +
+          '</div>' +
+        '</div>';
+    }
+  },
+  
+  // Применить данные из облака
+  applyCloudData: function(data) {
+    this.state.shawarmas = parseFloat(data.shawarmas) || 0;
+    this.state.totalShawarmas = parseFloat(data.total_shawarmas) || 0;
+    this.state.lifetimeShawarmas = parseFloat(data.lifetime_shawarmas) || 0;
+    this.state.perClick = parseInt(data.per_click) || 1;
+    this.state.clickCount = parseInt(data.click_count) || 0;
+    this.state.prestigeLevel = parseInt(data.prestige_level) || 0;
+    this.state.prestigeBonus = parseFloat(data.prestige_bonus) || 1;
+    this.state.dailyStreak = parseInt(data.daily_streak) || 0;
+    this.state.lastDailyReward = data.last_daily_reward ? new Date(data.last_daily_reward).getTime() : 0;
+    this.state.lastPlayTime = data.last_play_time ? new Date(data.last_play_time).getTime() : Date.now();
+    
+    // Применяем здания
+    if (data.buildings && data.buildings.length) {
+      for (var i = 0; i < data.buildings.length; i++) {
+        var cloudBuilding = data.buildings[i];
+        var building = this.findBuilding(cloudBuilding.building_id);
+        if (building) {
+          building.owned = cloudBuilding.owned;
+          // Пересчитываем стоимость
+          var baseCost = GameConfig.buildings[cloudBuilding.building_id - 1].cost;
+          building.cost = Math.floor(baseCost * Math.pow(1.15, cloudBuilding.owned));
+        }
+      }
+    }
+    
+    // Применяем улучшения
+    if (data.upgrades && data.upgrades.length) {
+      for (var j = 0; j < data.upgrades.length; j++) {
+        var cloudUpgrade = data.upgrades[j];
+        var upgrade = this.findUpgrade(cloudUpgrade.upgrade_id);
+        if (upgrade) {
+          upgrade.purchased = cloudUpgrade.purchased;
+        }
+      }
+    }
+    
+    // Применяем достижения
+    if (data.achievements && data.achievements.length) {
+      for (var k = 0; k < data.achievements.length; k++) {
+        var cloudAch = data.achievements[k];
+        var achievement = this.findAchievement(cloudAch.achievement_id);
+        if (achievement) {
+          achievement.unlocked = true;
+        }
+      }
+    }
+  },
+  
+  // Загрузка из localStorage
+  loadFromLocalStorage: function() {
+    var saved = null;
     if (typeof GameStorage !== 'undefined') {
       saved = GameStorage.load();
     }
     
     if (saved) {
-      console.log('📂 Загружено сохранение');
-      
+      console.log('💾 Загружены локальные данные');
       this.state.shawarmas = saved.shawarmas || 0;
       this.state.totalShawarmas = saved.totalShawarmas || 0;
       this.state.lifetimeShawarmas = saved.lifetimeShawarmas || 0;
@@ -162,51 +284,41 @@ var Game = {
       this.state.dailyStreak = saved.dailyStreak || 0;
       this.state.lastDailyReward = saved.lastDailyReward || 0;
       
-      // Загружаем здания
-      if (saved.buildings && saved.buildings.length) {
+      if (saved.buildings) {
         for (var i = 0; i < saved.buildings.length; i++) {
-          var savedBuilding = saved.buildings[i];
-          var building = this.findBuilding(savedBuilding.id);
+          var sb = saved.buildings[i];
+          var building = this.findBuilding(sb.id);
           if (building) {
-            building.owned = savedBuilding.owned;
-            building.cost = savedBuilding.cost;
+            building.owned = sb.owned;
+            building.cost = sb.cost;
           }
         }
       }
       
-      // Загружаем улучшения
-      if (saved.upgrades && saved.upgrades.length) {
+      if (saved.upgrades) {
         for (var j = 0; j < saved.upgrades.length; j++) {
-          var savedUpgrade = saved.upgrades[j];
-          var upgrade = this.findUpgrade(savedUpgrade.id);
-          if (upgrade) {
-            upgrade.purchased = savedUpgrade.purchased;
-          }
+          var su = saved.upgrades[j];
+          var upgrade = this.findUpgrade(su.id);
+          if (upgrade) upgrade.purchased = su.purchased;
         }
       }
       
-      // Загружаем достижения
-      if (saved.achievements && saved.achievements.length) {
+      if (saved.achievements) {
         for (var k = 0; k < saved.achievements.length; k++) {
-          var savedAch = saved.achievements[k];
-          var achievement = this.findAchievement(savedAch.id);
-          if (achievement) {
-            achievement.unlocked = savedAch.unlocked;
-          }
+          var sa = saved.achievements[k];
+          var achievement = this.findAchievement(sa.id);
+          if (achievement) achievement.unlocked = sa.unlocked;
         }
       }
     }
-    
-    // Рассчитываем офлайн прогресс
+  },
+  
+  // Завершение загрузки
+  finishLoading: function() {
     this.calculateOfflineProgress();
-    
-    // Рассчитываем производство
     this.calculateProduction();
-    
-    // Проверяем ежедневную награду
     this.checkDailyReward();
     
-    // Отрисовываем интерфейс
     if (typeof UI !== 'undefined') {
       UI.render();
     }
@@ -215,35 +327,56 @@ var Game = {
   // Вспомогательные функции поиска
   findBuilding: function(id) {
     for (var i = 0; i < this.state.buildings.length; i++) {
-      if (this.state.buildings[i].id === id) {
-        return this.state.buildings[i];
-      }
+      if (this.state.buildings[i].id === id) return this.state.buildings[i];
     }
     return null;
   },
   
   findUpgrade: function(id) {
     for (var i = 0; i < this.state.upgrades.length; i++) {
-      if (this.state.upgrades[i].id === id) {
-        return this.state.upgrades[i];
-      }
+      if (this.state.upgrades[i].id === id) return this.state.upgrades[i];
     }
     return null;
   },
   
   findAchievement: function(id) {
     for (var i = 0; i < this.state.achievements.length; i++) {
-      if (this.state.achievements[i].id === id) {
-        return this.state.achievements[i];
-      }
+      if (this.state.achievements[i].id === id) return this.state.achievements[i];
     }
     return null;
   },
   
-  // Сохранение игры
+  // Сохранение игры (локально + облако)
   saveGame: function() {
+    // Локальное сохранение
     if (typeof GameStorage !== 'undefined') {
       GameStorage.save(this.state);
+    }
+    
+    // Облачное сохранение (с троттлингом)
+    var now = Date.now();
+    if (this.cloudSaveEnabled && (now - this.lastCloudSave > this.cloudSaveInterval)) {
+      this.saveToCloud();
+      this.lastCloudSave = now;
+    }
+  },
+  
+  // Сохранение в облако
+  saveToCloud: function() {
+    if (!this.cloudSaveEnabled) return;
+    
+    var self = this;
+    DB.saveUser(this.state, this.userInfo, function(success) {
+      if (success) {
+        console.log('☁️ Сохранено в облако');
+      }
+    });
+  },
+  
+  // Принудительное сохранение в облако
+  forceSaveToCloud: function() {
+    if (this.cloudSaveEnabled) {
+      this.saveToCloud();
     }
   },
   
@@ -253,7 +386,7 @@ var Game = {
     var timePassed = (now - this.state.lastPlayTime) / 1000;
     
     if (timePassed > 10 && this.state.perSecond > 0) {
-      var maxOfflineTime = 4 * 60 * 60; // Макс 4 часа
+      var maxOfflineTime = 4 * 60 * 60;
       var actualTime = Math.min(timePassed, maxOfflineTime);
       var offlineProduction = this.state.perSecond * actualTime;
       
@@ -299,7 +432,6 @@ var Game = {
     }
   },
   
-  // Показать модалку ежедневной награды
   showDailyRewardModal: function() {
     var modal = document.getElementById('daily-reward-modal');
     if (!modal) return;
@@ -323,7 +455,6 @@ var Game = {
     }
   },
   
-  // Забрать ежедневную награду
   claimDailyReward: function() {
     var reward = 1000 * Math.max(1, this.state.dailyStreak);
     this.state.shawarmas += reward;
@@ -332,15 +463,14 @@ var Game = {
     this.state.lastDailyReward = Date.now();
     
     var modal = document.getElementById('daily-reward-modal');
-    if (modal) {
-      modal.classList.add('hidden');
-    }
+    if (modal) modal.classList.add('hidden');
     
     if (typeof UI !== 'undefined') {
       UI.createParticles(window.innerWidth / 2, window.innerHeight / 2, 20, '🎁');
     }
     
     this.saveGame();
+    this.forceSaveToCloud();
     
     if (typeof UI !== 'undefined') {
       UI.render();
@@ -403,7 +533,6 @@ var Game = {
       UI.createParticles(event.clientX, event.clientY, 5);
     }
     
-    // Вибрация в Telegram
     try {
       if (this.isTelegram && this.tg && this.tg.HapticFeedback) {
         this.tg.HapticFeedback.impactOccurred('light');
@@ -417,7 +546,6 @@ var Game = {
     }
   },
   
-  // Получить скидку на здания
   getBuildingDiscount: function() {
     var discount = 1;
     for (var i = 0; i < this.state.upgrades.length; i++) {
@@ -429,7 +557,6 @@ var Game = {
     return discount;
   },
   
-  // Покупка здания
   buyBuilding: function(buildingId) {
     var building = this.findBuilding(buildingId);
     if (!building) return;
@@ -464,7 +591,6 @@ var Game = {
     }
   },
   
-  // Покупка улучшения
   buyUpgrade: function(upgradeId) {
     var upgrade = this.findUpgrade(upgradeId);
     if (!upgrade || upgrade.purchased) return;
@@ -493,7 +619,6 @@ var Game = {
     }
   },
   
-  // Подсчёт общего количества зданий
   getTotalBuildings: function() {
     var total = 0;
     for (var i = 0; i < this.state.buildings.length; i++) {
@@ -502,9 +627,7 @@ var Game = {
     return total;
   },
   
-  // Проверка достижений
   checkAchievements: function() {
-    var self = this;
     var totalBuildings = this.getTotalBuildings();
     
     for (var i = 0; i < this.state.achievements.length; i++) {
@@ -532,7 +655,6 @@ var Game = {
     }
   },
   
-  // Открыть модалку престижа
   openPrestigeModal: function() {
     if (this.state.totalShawarmas < 1000000) {
       if (typeof UI !== 'undefined') {
@@ -556,32 +678,23 @@ var Game = {
     if (totalEl && typeof UI !== 'undefined') {
       totalEl.textContent = UI.formatNumber(this.state.totalShawarmas);
     }
-    if (buildingsEl) {
-      buildingsEl.textContent = totalBuildings;
-    }
-    if (bonusEl) {
-      bonusEl.textContent = newBonus.toFixed(2);
-    }
+    if (buildingsEl) buildingsEl.textContent = totalBuildings;
+    if (bonusEl) bonusEl.textContent = newBonus.toFixed(2);
     
     var modal = document.getElementById('prestige-modal');
-    if (modal) {
-      modal.classList.remove('hidden');
-    }
+    if (modal) modal.classList.remove('hidden');
   },
   
-  // Закрыть модалку престижа
   closePrestigeModal: function() {
     var modal = document.getElementById('prestige-modal');
-    if (modal) {
-      modal.classList.add('hidden');
-    }
+    if (modal) modal.classList.add('hidden');
   },
   
-  // Подтвердить престиж
   confirmPrestige: function() {
+    var self = this;
+    
     this.state.prestigeLevel++;
     this.state.prestigeBonus = 1 + (this.state.lifetimeShawarmas / 1000000) * 0.5;
-    
     this.state.shawarmas = 0;
     this.state.totalShawarmas = 0;
     
@@ -604,7 +717,6 @@ var Game = {
     
     if (typeof UI !== 'undefined') {
       UI.createParticles(window.innerWidth / 2, window.innerHeight / 2, 30, '⭐');
-      
       UI.showAchievementPopup({
         name: 'Престиж достигнут!',
         desc: 'Множитель: x' + this.state.prestigeBonus.toFixed(2),
@@ -613,16 +725,24 @@ var Game = {
       });
     }
     
+    // Сбрасываем данные в облаке
+    if (this.cloudSaveEnabled) {
+      DB.resetForPrestige(function() {
+        self.saveGame();
+        self.forceSaveToCloud();
+      });
+    } else {
+      this.saveGame();
+    }
+    
     this.checkAchievements();
     this.calculateProduction();
-    this.saveGame();
     
     if (typeof UI !== 'undefined') {
       UI.render(true);
     }
   },
   
-  // Смена вкладки
   switchTab: function(tab) {
     this.state.currentTab = tab;
     if (typeof UI !== 'undefined') {
@@ -630,35 +750,70 @@ var Game = {
     }
   },
   
+  // Показать лидерборд
+  showLeaderboard: function() {
+    if (!this.cloudSaveEnabled) {
+      if (typeof UI !== 'undefined') {
+        UI.showAchievementPopup({
+          name: 'Лидерборд недоступен',
+          desc: 'Требуется подключение к интернету',
+          reward: 0,
+          emoji: '📶'
+        });
+      }
+      return;
+    }
+    
+    DB.getLeaderboard(10, function(leaders) {
+      if (typeof UI !== 'undefined') {
+        UI.showLeaderboard(leaders);
+      }
+    });
+  },
+  
   // Запуск игровых циклов
   startGameLoops: function() {
     var self = this;
     
-    // Автопроизводство каждые 100мс
+    // Автопроизводство
     setInterval(function() {
       self.state.shawarmas += self.state.perSecond / 10;
       self.state.totalShawarmas += self.state.perSecond / 10;
       self.state.lifetimeShawarmas += self.state.perSecond / 10;
     }, 100);
     
-    // Обновление счётчиков раз в секунду
+    // Обновление UI
     setInterval(function() {
       if (typeof UI !== 'undefined') {
         UI.updateCounters();
       }
     }, 1000);
     
-    // Периодическое обновление кнопок
+    // Обновление кнопок
     setInterval(function() {
       if (typeof UI !== 'undefined') {
         UI.updateButtonStates();
       }
     }, 2000);
     
-    // Автосохранение каждые 5 секунд
+    // Автосохранение
     setInterval(function() {
       self.saveGame();
     }, 5000);
+    
+    // Сохранение в облако при закрытии
+    window.addEventListener('beforeunload', function() {
+      self.forceSaveToCloud();
+    });
+    
+    // Для Telegram - сохранение при сворачивании
+    if (this.isTelegram && this.tg) {
+      document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+          self.forceSaveToCloud();
+        }
+      });
+    }
     
     console.log('✅ Game loops запущены');
   }
