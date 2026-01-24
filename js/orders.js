@@ -134,8 +134,22 @@ var Orders = {
       (template.targetMin + Math.random() * (template.targetMax - template.targetMin)) * scale
     );
     
-    // Награда зависит от сложности
-    var reward = Math.floor(target * (5 + Math.random() * 10));
+    // Награда = примерно 10-20% от цели для производства, фикс для кликов
+    var reward;
+    if (type.id === 'click') {
+      reward = Math.floor(target * 0.5); // 0.5 шаурмы за клик
+    } else if (type.id === 'produce') {
+      reward = Math.floor(target * 0.15); // 15% от произведённого
+    } else if (type.id === 'buy_building') {
+      reward = Math.floor(target * 50 * scale); // 50 за здание
+    } else if (type.id === 'slicer') {
+      reward = Math.floor(target * 5); // 5 шаурмы за очко в слайсере
+    } else {
+      reward = Math.floor(target * 0.1);
+    }
+    
+    // Минимум 10 шаурмы
+    reward = Math.max(10, reward);
     
     // Начальное значение для отслеживания прогресса
     var startValue = 0;
