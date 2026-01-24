@@ -145,8 +145,8 @@ var UI = {
       // Создаём индикатор если его нет
       indicator = document.createElement('div');
       indicator.id = 'combo-indicator';
-      indicator.className = 'fixed top-32 left-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-full font-bold shadow-lg z-30';
-      indicator.style.cssText = 'transition: all 0.3s ease; transform: translateX(-50%);';
+      indicator.className = 'fixed left-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-2 rounded-full font-bold shadow-lg z-30';
+      indicator.style.cssText = 'transition: all 0.3s ease; transform: translateX(-50%); top: 140px;';
       document.body.appendChild(indicator);
     }
     
@@ -312,9 +312,10 @@ var UI = {
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
     
     var slicerBest = localStorage.getItem('slicer_best') || 0;
+    var chopperBest = localStorage.getItem('chopper_best') || 0;
     
     modal.innerHTML = 
-      '<div class="bg-white rounded-3xl p-6 max-w-sm mx-4">' +
+      '<div class="bg-white rounded-3xl p-6 max-w-sm mx-4 max-h-[90vh] overflow-y-auto">' +
         '<div class="text-center mb-4">' +
           '<div class="text-4xl mb-2">🎮</div>' +
           '<h2 class="text-2xl font-bold text-gray-800">Мини-игры</h2>' +
@@ -327,8 +328,20 @@ var UI = {
               '<div class="text-4xl">🔪</div>' +
               '<div class="flex-1">' +
                 '<div class="font-bold text-lg">Слайсер</div>' +
-                '<div class="text-sm opacity-90">Нарезай ингредиенты!</div>' +
+                '<div class="text-sm opacity-90">Лови и режь ингредиенты!</div>' +
                 '<div class="text-xs opacity-75">Рекорд: ' + slicerBest + '</div>' +
+              '</div>' +
+              '<div class="text-2xl">▶</div>' +
+            '</div>' +
+          '</button>' +
+          // Нарезка
+          '<button data-action="open-chopper" class="w-full p-4 bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-xl text-left hover:from-orange-500 hover:to-red-600 transition-all">' +
+            '<div class="flex items-center gap-3">' +
+              '<div class="text-4xl">🥒</div>' +
+              '<div class="flex-1">' +
+                '<div class="font-bold text-lg">Нарезка</div>' +
+                '<div class="text-sm opacity-90">Нарежь на максимум кусочков!</div>' +
+                '<div class="text-xs opacity-75">Рекорд: ' + chopperBest + ' полосок</div>' +
               '</div>' +
               '<div class="text-2xl">▶</div>' +
             '</div>' +
@@ -370,6 +383,13 @@ var UI = {
       modal.remove();
       if (typeof Slicer !== 'undefined') {
         Slicer.openMenu();
+      }
+    };
+    
+    modal.querySelector('[data-action="open-chopper"]').onclick = function() {
+      modal.remove();
+      if (typeof Chopper !== 'undefined') {
+        Chopper.openMenu();
       }
     };
     
