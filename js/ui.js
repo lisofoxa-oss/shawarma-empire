@@ -36,6 +36,11 @@ var UI = {
       }
     }
     
+    // Для чисел меньше 1 показываем десятичные
+    if (num < 1 && num > 0) {
+      return num.toFixed(1);
+    }
+    
     return Math.floor(num).toString();
   },
   
@@ -416,14 +421,14 @@ var UI = {
     };
     
     var html = '<div class="min-h-screen pb-20">' +
-      '<div class="bg-gradient-to-r from-orange-500 via-red-500 to-orange-600 text-white p-4 shadow-lg sticky top-0 z-30">' +
+      '<div class="bg-gradient-to-r from-orange-500 via-red-500 to-orange-600 text-white p-3 shadow-lg sticky top-0 z-30">' +
         '<div class="flex justify-between items-center mb-2">' +
-          '<h1 class="text-2xl font-bold">🌯 Империя Шаурмы</h1>' +
-          '<div class="flex gap-2">' +
-            '<span title="' + (Game.cloudSaveEnabled ? 'Облако' : 'Локально') + '">' + cloud + '</span>' +
-            '<button data-action="open-minigames" class="bg-green-500 hover:bg-green-600 px-2 py-1 rounded text-sm">🎮</button>' +
-            (Game.cloudSaveEnabled ? '<button data-action="show-leaderboard" class="bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded text-sm">🏆</button>' : '') +
-            (canPrestige ? '<button data-action="open-prestige" class="bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded text-sm golden-shine">⭐</button>' : '') +
+          '<h1 class="text-xl font-bold whitespace-nowrap">🌯 Империя Шаурмы</h1>' +
+          '<div class="flex gap-1 flex-shrink-0">' +
+            '<span class="text-xs" title="' + (Game.cloudSaveEnabled ? 'Облако' : 'Локально') + '">' + cloud + '</span>' +
+            '<button data-action="open-minigames" class="bg-green-500 hover:bg-green-600 px-2 py-1 rounded text-xs">🎮</button>' +
+            (Game.cloudSaveEnabled ? '<button data-action="show-leaderboard" class="bg-yellow-500 hover:bg-yellow-600 px-2 py-1 rounded text-xs">🏆</button>' : '') +
+            (canPrestige ? '<button data-action="open-prestige" class="bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded text-xs golden-shine">⭐</button>' : '') +
           '</div>' +
         '</div>' +
         '<div class="grid grid-cols-3 gap-2 text-center">' +
