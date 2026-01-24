@@ -1,5 +1,5 @@
 // Основная логика игры с облачным сохранением
-// js/game.js v2.0
+// js/game.js v2.1 - Комбо и золотая шаурма
 
 var Game = {
   // Состояние игры
@@ -19,6 +19,25 @@ var Game = {
     upgrades: [],
     achievements: [],
     currentTab: 'buildings'
+  },
+  
+  // Комбо система
+  combo: {
+    count: 0,
+    multiplier: 1,
+    lastClickTime: 0,
+    comboTimeout: 1000, // 1 секунда на следующий клик
+    maxMultiplier: 5
+  },
+  
+  // Золотая шаурма
+  goldenShawarma: {
+    active: false,
+    element: null,
+    minInterval: 20000, // Минимум 20 сек
+    maxInterval: 60000, // Максимум 60 сек
+    displayTime: 5000,  // Показывается 5 сек
+    bonusMultiplier: 10 // x10 от текущего perSecond или 100 минимум
   },
   
   // Информация о пользователе Telegram
@@ -508,9 +527,24 @@ var Game = {
   
   // Клик по шаурме
   handleClick: function(event) {
-    this.state.shawarmas += this.state.perClick;
-    this.state.totalShawarmas += this.state.perClick;
-    this.state.lifetimeShawarmas += this.state.perClick;
+    var now = Date.now();
+    
+    // Комбо система
+    if (now - this.combo.lastClickTime < this.combo.comboTimeout) {
+      this.combo.count++;
+      this.combo.multiplier = Math.min(1 + (this.combo.count * 0.1), this.combo.maxMultiplier);
+    } else {
+      this.combo.count = 0;
+      this.combo.multiplier = 1;
+    }
+    this.combo.lastClickTime = now;
+    
+    // Расчёт награды с комбо
+    var clickReward = this.state.perClick * this.combo.multiplier;
+    
+    this.state.shawarmas += clickReward;
+    this.state.totalShawarmas += clickReward;
+    this.state.lifetimeShawarmas += clickReward;
     this.state.clickCount++;
     
     var shawarmaBtn = document.getElementById('shawarma-btn');
@@ -522,20 +556,34 @@ var Game = {
     }
     
     if (typeof UI !== 'undefined') {
-      UI.showFloatingNumber(event.clientX, event.clientY, this.state.perClick);
+      // Показываем число с комбо
+      var displayText = clickReward;
+      if (this.combo.multiplier > 1) {
+        UI.showFloatingNumber(event.clientX, event.clientY, clickReward, 'x' + this.combo.multiplier.toFixed(1));
+      } else {
+        UI.showFloatingNumber(event.clientX, event.clientY, clickReward);
+      }
+      
+      // Обновляем комбо-индикатор
+      UI.updateComboIndicator(this.combo.count, this.combo.multiplier);
     }
     
     if (typeof SoundManager !== 'undefined') {
       SoundManager.click();
     }
     
-    if (Math.random() < 0.1 && typeof UI !== 'undefined') {
-      UI.createParticles(event.clientX, event.clientY, 5);
+    // Больше частиц при комбо
+    var particleChance = 0.1 + (this.combo.multiplier - 1) * 0.1;
+    if (Math.random() < particleChance && typeof UI !== 'undefined') {
+      var particleCount = Math.min(5 + this.combo.count, 15);
+      UI.createParticles(event.clientX, event.clientY, particleCount);
     }
     
     try {
       if (this.isTelegram && this.tg && this.tg.HapticFeedback) {
-        this.tg.HapticFeedback.impactOccurred('light');
+        // Сильнее вибрация при комбо
+        var intensity = this.combo.multiplier > 2 ? 'medium' : 'light';
+        this.tg.HapticFeedback.impactOccurred(intensity);
       }
     } catch (e) {}
     
@@ -815,7 +863,118 @@ var Game = {
       });
     }
     
+    // Запускаем цикл золотой шаурмы
+    this.scheduleGoldenShawarma();
+    
     console.log('✅ Game loops запущены');
+  },
+  
+  // Планирование появления золотой шаурмы
+  scheduleGoldenShawarma: function() {
+    var self = this;
+    var delay = this.goldenShawarma.minInterval + 
+                Math.random() * (this.goldenShawarma.maxInterval - this.goldenShawarma.minInterval);
+    
+    setTimeout(function() {
+      self.spawnGoldenShawarma();
+    }, delay);
+  },
+  
+  // Появление золотой шаурмы
+  spawnGoldenShawarma: function() {
+    if (this.goldenShawarma.active) return;
+    
+    var self = this;
+    this.goldenShawarma.active = true;
+    
+    // Создаём элемент
+    var golden = document.createElement('div');
+    golden.id = 'golden-shawarma';
+    golden.innerHTML = '🌯';
+    golden.className = 'fixed text-6xl cursor-pointer z-50 animate-bounce filter drop-shadow-lg';
+    golden.style.cssText = 'left:' + (20 + Math.random() * 60) + '%;top:' + (30 + Math.random() * 40) + '%;' +
+      'text-shadow: 0 0 20px gold, 0 0 40px orange;transform:scale(1.2);';
+    
+    // Клик по золотой шаурме
+    golden.onclick = function(e) {
+      e.stopPropagation();
+      self.collectGoldenShawarma();
+    };
+    
+    document.body.appendChild(golden);
+    this.goldenShawarma.element = golden;
+    
+    // Звук появления
+    if (typeof SoundManager !== 'undefined') {
+      SoundManager.achievement();
+    }
+    
+    // Показываем подсказку
+    if (typeof UI !== 'undefined') {
+      UI.showAchievementPopup({
+        name: 'Золотая шаурма!',
+        desc: 'Быстрее! Кликни на неё!',
+        reward: 0,
+        emoji: '✨'
+      });
+    }
+    
+    // Автоисчезновение
+    setTimeout(function() {
+      if (self.goldenShawarma.active) {
+        self.removeGoldenShawarma();
+        self.scheduleGoldenShawarma();
+      }
+    }, this.goldenShawarma.displayTime);
+  },
+  
+  // Сбор золотой шаурмы
+  collectGoldenShawarma: function() {
+    if (!this.goldenShawarma.active) return;
+    
+    // Расчёт бонуса
+    var bonus = Math.max(this.state.perSecond * this.goldenShawarma.bonusMultiplier, 100);
+    bonus = Math.floor(bonus * this.state.prestigeBonus);
+    
+    this.state.shawarmas += bonus;
+    this.state.totalShawarmas += bonus;
+    this.state.lifetimeShawarmas += bonus;
+    
+    // Эффекты
+    var el = this.goldenShawarma.element;
+    if (el && typeof UI !== 'undefined') {
+      var rect = el.getBoundingClientRect();
+      UI.createParticles(rect.left + rect.width/2, rect.top + rect.height/2, 20, '⭐');
+      UI.showFloatingNumber(rect.left + rect.width/2, rect.top, bonus, 'БОНУС!');
+    }
+    
+    if (typeof SoundManager !== 'undefined') {
+      SoundManager.achievement();
+    }
+    
+    // Вибрация
+    try {
+      if (this.isTelegram && this.tg && this.tg.HapticFeedback) {
+        this.tg.HapticFeedback.notificationOccurred('success');
+      }
+    } catch (e) {}
+    
+    // Убираем и планируем следующую
+    this.removeGoldenShawarma();
+    this.scheduleGoldenShawarma();
+    
+    if (typeof UI !== 'undefined') {
+      UI.updateCounters();
+    }
+  },
+  
+  // Удаление золотой шаурмы
+  removeGoldenShawarma: function() {
+    if (this.goldenShawarma.element) {
+      this.goldenShawarma.element.remove();
+      this.goldenShawarma.element = null;
+    }
+    this.goldenShawarma.active = false;
   }
 };
 
