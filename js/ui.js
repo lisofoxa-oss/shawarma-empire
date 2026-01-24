@@ -107,6 +107,7 @@ var UI = {
     if (tab === 'buildings') el.innerHTML = this.renderBuildings();
     else if (tab === 'upgrades') el.innerHTML = this.renderUpgrades();
     else if (tab === 'achievements') el.innerHTML = this.renderAchievements();
+    else if (tab === 'orders') el.innerHTML = this.renderOrders();
   },
   
   showFloatingNumber: function(x, y, value, suffix) {
@@ -398,6 +399,15 @@ var UI = {
     if (state.currentTab === 'buildings') tabContent = this.renderBuildings();
     else if (state.currentTab === 'upgrades') tabContent = this.renderUpgrades();
     else if (state.currentTab === 'achievements') tabContent = this.renderAchievements();
+    else if (state.currentTab === 'orders') tabContent = this.renderOrders();
+    
+    // Считаем готовые заказы
+    var readyOrders = 0;
+    if (typeof Orders !== 'undefined') {
+      for (var o = 0; o < Orders.activeOrders.length; o++) {
+        if (Orders.activeOrders[o].completed) readyOrders++;
+      }
+    }
     
     var tabCls = function(t) {
       return state.currentTab === t 
@@ -443,10 +453,11 @@ var UI = {
           '</div>' +
         '</div>' +
         '<div class="bg-white rounded-2xl shadow-xl overflow-hidden">' +
-          '<div class="grid grid-cols-3 border-b-2 border-gray-200">' +
-            '<button data-action="switch-tab" data-tab="buildings" class="p-3 font-semibold ' + tabCls('buildings') + '">🏪 Магазин</button>' +
-            '<button data-action="switch-tab" data-tab="upgrades" class="p-3 font-semibold ' + tabCls('upgrades') + '">⚡ Апгрейды</button>' +
-            '<button data-action="switch-tab" data-tab="achievements" class="p-3 font-semibold ' + tabCls('achievements') + '">🏆 ' + (unlocked > 0 ? '(' + unlocked + ')' : '') + '</button>' +
+          '<div class="grid grid-cols-4 border-b-2 border-gray-200">' +
+            '<button data-action="switch-tab" data-tab="buildings" class="p-2 font-semibold text-sm ' + tabCls('buildings') + '">🏪 Магазин</button>' +
+            '<button data-action="switch-tab" data-tab="upgrades" class="p-2 font-semibold text-sm ' + tabCls('upgrades') + '">⚡ Апгрейды</button>' +
+            '<button data-action="switch-tab" data-tab="orders" class="p-2 font-semibold text-sm ' + tabCls('orders') + '">📦 ' + (readyOrders > 0 ? '<span class="bg-red-500 text-white text-xs px-1 rounded">' + readyOrders + '</span>' : 'Заказы') + '</button>' +
+            '<button data-action="switch-tab" data-tab="achievements" class="p-2 font-semibold text-sm ' + tabCls('achievements') + '">🏆 ' + (unlocked > 0 ? '(' + unlocked + ')' : '') + '</button>' +
           '</div>' +
           '<div id="tab-content" class="p-4 max-h-80 overflow-y-auto">' + tabContent + '</div>' +
         '</div>' +
@@ -584,6 +595,63 @@ var UI = {
           (u.purchased ? '' : '<div class="text-orange-600 font-bold">' + this.formatNumber(u.cost) + ' 🌯</div>') +
         '</div>' +
       '</button>';
+    }
+    
+    return html + '</div>';
+  },
+  
+  // Отрисовка заказов
+  renderOrders: function() {
+    if (typeof Orders === 'undefined') {
+      return '<div class="text-center py-8 text-gray-500">Заказы загружаются...</div>';
+    }
+    
+    var orders = Orders.activeOrders;
+    var timeToRefresh = Orders.getTimeToRefresh();
+    var minutes = Math.floor(timeToRefresh / 60000);
+    var seconds = Math.floor((timeToRefresh % 60000) / 1000);
+    var self = this;
+    
+    var html = '<div class="space-y-3">' +
+      '<div class="text-center p-2 bg-gradient-to-r from-blue-100 to-purple-100 rounded-xl">' +
+        '<div class="text-sm text-gray-600">Новые заказы через</div>' +
+        '<div class="font-bold text-purple-600">' + minutes + ':' + (seconds < 10 ? '0' : '') + seconds + '</div>' +
+      '</div>';
+    
+    if (orders.length === 0) {
+      html += '<div class="text-center py-8 text-gray-500">Нет активных заказов</div>';
+    } else {
+      for (var i = 0; i < orders.length; i++) {
+        var order = orders[i];
+        var progress = Orders.getProgress(order);
+        var pct = Math.min((progress / order.target) * 100, 100);
+        
+        var bg = order.completed 
+          ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-green-400' 
+          : 'bg-white border-gray-200';
+        
+        html += '<div class="p-3 rounded-xl border-2 ' + bg + '">' +
+          '<div class="flex items-center gap-3">' +
+            '<div class="text-4xl">' + order.customer + '</div>' +
+            '<div class="flex-1">' +
+              '<div class="font-bold text-sm">' + order.desc + '</div>' +
+              '<div class="text-xs text-orange-600">🎁 +' + self.formatNumber(order.reward) + ' шаурмы</div>';
+        
+        if (order.completed) {
+          html += '<button data-action="claim-order" data-id="' + order.id + '" ' +
+            'class="mt-2 w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-bold text-sm">' +
+            '✅ Забрать награду!</button>';
+        } else {
+          html += '<div class="mt-2">' +
+            '<div class="w-full bg-gray-200 rounded-full h-2">' +
+              '<div class="bg-blue-500 h-2 rounded-full transition-all" style="width:' + pct + '%"></div>' +
+            '</div>' +
+            '<div class="text-xs text-gray-500 mt-1">' + self.formatNumber(progress) + '/' + self.formatNumber(order.target) + '</div>' +
+          '</div>';
+        }
+        
+        html += '</div></div></div>';
+      }
     }
     
     return html + '</div>';
