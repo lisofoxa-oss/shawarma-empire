@@ -200,97 +200,236 @@ var Events = {
   // Дождь шаурмы
   startShawarmaRain: function(duration) {
     var self = this;
-    var container = document.getElementById('rain-container');
     
-    if (!container) {
-      container = document.createElement('div');
-      container.id = 'rain-container';
-      container.className = 'fixed inset-0 pointer-events-none z-30 overflow-hidden';
-      document.body.appendChild(container);
+    // Показываем баннер с кнопкой старта
+    var banner = document.createElement('div');
+    banner.id = 'rain-banner';
+    banner.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50';
+    banner.innerHTML = 
+      '<div class="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6 rounded-2xl shadow-2xl text-center max-w-xs">' +
+        '<div class="text-5xl mb-3 animate-bounce">🌧️🌯</div>' +
+        '<div class="text-xl font-bold mb-2">Дождь шаурмы!</div>' +
+        '<div class="text-sm opacity-90 mb-4">Лови падающие шаурмы!</div>' +
+        '<button id="start-rain-btn" class="w-full bg-white text-purple-600 font-bold py-3 px-6 rounded-xl hover:bg-gray-100 transition-all">' +
+          '🎮 Начать!' +
+        '</button>' +
+        '<div class="text-xs opacity-70 mt-2">Исчезнет через 5 сек...</div>' +
+      '</div>';
+    
+    document.body.appendChild(banner);
+    
+    // Автоматически убираем баннер через 5 секунд если не нажали
+    var bannerTimeout = setTimeout(function() {
+      if (banner && banner.parentNode) {
+        banner.remove();
+      }
+    }, 5000);
+    
+    // Обработчик клика
+    var startBtn = document.getElementById('start-rain-btn');
+    if (startBtn) {
+      startBtn.onclick = function() {
+        clearTimeout(bannerTimeout);
+        banner.remove();
+        self.startRainGame();
+      };
     }
-    
-    var endTime = Date.now() + duration;
-    var spawnInterval = setInterval(function() {
-      if (Date.now() > endTime) {
-        clearInterval(spawnInterval);
-        return;
-      }
-      self.spawnRainDrop(container);
-    }, 300);
-    
-    // Очищаем контейнер после
-    setTimeout(function() {
-      if (container.parentNode) {
-        container.innerHTML = '';
-      }
-    }, duration + 3000);
   },
   
-  // Создать падающую шаурму
-  spawnRainDrop: function(container) {
-    var drop = document.createElement('div');
-    drop.className = 'absolute text-3xl cursor-pointer transition-transform';
-    drop.style.cssText = 'pointer-events: auto; left:' + (5 + Math.random() * 90) + '%; top: -50px;';
-    drop.innerHTML = '🌯';
-    
+  // Сама игра ловли шаурмы
+  startRainGame: function() {
     var self = this;
-    drop.onclick = function(e) {
-      e.stopPropagation();
-      self.collectRainDrop(drop);
-    };
+    var caught = 0;
+    var totalReward = 0;
+    var timeLeft = 10;
+    var gameActive = true;
     
-    container.appendChild(drop);
+    // Приостанавливаем основные события
+    this.pauseEvents = true;
     
-    // Анимация падения
-    var startY = -50;
-    var endY = window.innerHeight + 50;
-    var duration = 2000 + Math.random() * 1000;
-    var startTime = Date.now();
+    // Создаём игровой контейнер
+    var container = document.createElement('div');
+    container.id = 'rain-game';
+    container.className = 'fixed inset-0 z-50';
+    container.style.background = 'linear-gradient(to bottom, #1e3a5f, #0f172a)';
+    container.innerHTML = 
+      '<div class="absolute top-4 left-0 right-0 flex justify-between px-4 text-white">' +
+        '<div class="bg-white bg-opacity-20 px-4 py-2 rounded-xl">' +
+          '<div class="text-xs opacity-80">Поймано</div>' +
+          '<div id="rain-caught" class="text-2xl font-bold">0</div>' +
+        '</div>' +
+        '<div class="bg-white bg-opacity-20 px-4 py-2 rounded-xl">' +
+          '<div class="text-xs opacity-80">Время</div>' +
+          '<div id="rain-timer" class="text-2xl font-bold">10</div>' +
+        '</div>' +
+        '<div class="bg-white bg-opacity-20 px-4 py-2 rounded-xl">' +
+          '<div class="text-xs opacity-80">Награда</div>' +
+          '<div id="rain-reward" class="text-2xl font-bold text-yellow-400">0</div>' +
+        '</div>' +
+      '</div>' +
+      '<div id="rain-area" class="absolute inset-0 top-20 overflow-hidden"></div>';
     
-    function animate() {
-      var elapsed = Date.now() - startTime;
-      var progress = elapsed / duration;
+    document.body.appendChild(container);
+    
+    var rainArea = document.getElementById('rain-area');
+    
+    // Функция создания падающей шаурмы
+    function spawnShawarma() {
+      if (!gameActive) return;
       
-      if (progress >= 1 || !drop.parentNode) {
-        if (drop.parentNode) drop.remove();
-        return;
+      var shawarma = document.createElement('div');
+      shawarma.className = 'absolute cursor-pointer select-none';
+      var size = 40 + Math.random() * 20;
+      shawarma.style.cssText = 
+        'left:' + (5 + Math.random() * 85) + '%;' +
+        'top:-60px;' +
+        'font-size:' + size + 'px;' +
+        'z-index:10;' +
+        'transition: transform 0.1s;';
+      shawarma.textContent = '🌯';
+      
+      // Клик по шаурме
+      shawarma.onclick = function(e) {
+        e.stopPropagation();
+        if (!gameActive) return;
+        
+        caught++;
+        var bonus = Math.max(Math.floor(Game.state.perSecond * 1), 5);
+        totalReward += bonus;
+        
+        // Обновляем счётчики
+        var caughtEl = document.getElementById('rain-caught');
+        var rewardEl = document.getElementById('rain-reward');
+        if (caughtEl) caughtEl.textContent = caught;
+        if (rewardEl) rewardEl.textContent = totalReward;
+        
+        // Эффект
+        shawarma.style.transform = 'scale(1.5)';
+        shawarma.style.opacity = '0';
+        setTimeout(function() { 
+          if (shawarma.parentNode) shawarma.remove(); 
+        }, 150);
+        
+        // Звук
+        if (typeof SoundManager !== 'undefined') {
+          SoundManager.click();
+        }
+        
+        // Вибрация
+        try {
+          if (Game.isTelegram && Game.tg && Game.tg.HapticFeedback) {
+            Game.tg.HapticFeedback.impactOccurred('light');
+          }
+        } catch(e) {}
+      };
+      
+      rainArea.appendChild(shawarma);
+      
+      // Анимация падения
+      var startTime = Date.now();
+      var duration = 2000 + Math.random() * 1500;
+      var startTop = -60;
+      var endTop = rainArea.clientHeight + 60;
+      var wobbleOffset = Math.random() * Math.PI * 2;
+      
+      function animate() {
+        if (!gameActive || !shawarma.parentNode) return;
+        
+        var elapsed = Date.now() - startTime;
+        var progress = elapsed / duration;
+        
+        if (progress >= 1) {
+          shawarma.remove();
+          return;
+        }
+        
+        var currentTop = startTop + (endTop - startTop) * progress;
+        var wobble = Math.sin(wobbleOffset + progress * Math.PI * 4) * 30;
+        shawarma.style.top = currentTop + 'px';
+        shawarma.style.marginLeft = wobble + 'px';
+        
+        requestAnimationFrame(animate);
       }
       
-      var y = startY + (endY - startY) * progress;
-      var wobble = Math.sin(progress * Math.PI * 4) * 20;
-      drop.style.transform = 'translateY(' + y + 'px) translateX(' + wobble + 'px) rotate(' + (progress * 360) + 'deg)';
-      
-      requestAnimationFrame(animate);
+      animate();
     }
     
-    animate();
+    // Спавним шаурмы каждые 250мс
+    var spawnInterval = setInterval(function() {
+      if (gameActive) {
+        spawnShawarma();
+        if (Math.random() < 0.3) spawnShawarma();
+        if (Math.random() < 0.1) spawnShawarma();
+      }
+    }, 250);
+    
+    // Таймер
+    var timerInterval = setInterval(function() {
+      timeLeft--;
+      var timerEl = document.getElementById('rain-timer');
+      if (timerEl) {
+        timerEl.textContent = timeLeft;
+        if (timeLeft <= 3) {
+          timerEl.style.color = '#ff6b6b';
+        }
+      }
+      
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        clearInterval(spawnInterval);
+        gameActive = false;
+        self.endRainGame(container, caught, totalReward);
+      }
+    }, 1000);
   },
   
-  // Собрать падающую шаурму
-  collectRainDrop: function(drop) {
-    if (!drop.parentNode) return;
+  // Конец игры дождя
+  endRainGame: function(container, caught, totalReward) {
+    var self = this;
     
-    // Бонус за пойманную шаурму = 1 секунда производства или минимум 5
-    var bonus = Math.max(Game.state.perSecond * 1, 5);
-    bonus = Math.floor(bonus * Game.state.prestigeBonus);
+    // Выдаём награду
+    Game.state.shawarmas += totalReward;
+    Game.state.totalShawarmas += totalReward;
+    Game.state.lifetimeShawarmas += totalReward;
     
-    Game.state.shawarmas += bonus;
-    Game.state.totalShawarmas += bonus;
-    Game.state.lifetimeShawarmas += bonus;
+    // Показываем результат
+    container.innerHTML = 
+      '<div class="flex items-center justify-center h-full">' +
+        '<div class="bg-gradient-to-br from-blue-500 to-purple-600 text-white p-8 rounded-3xl shadow-2xl text-center max-w-sm mx-4">' +
+          '<div class="text-6xl mb-4">🌧️🌯</div>' +
+          '<h2 class="text-2xl font-bold mb-4">Дождь закончился!</h2>' +
+          '<div class="space-y-3 mb-6">' +
+            '<div class="bg-white bg-opacity-20 rounded-xl p-3">' +
+              '<div class="text-sm opacity-80">Поймано шаурмы</div>' +
+              '<div class="text-3xl font-bold">' + caught + ' 🌯</div>' +
+            '</div>' +
+            '<div class="bg-yellow-400 text-yellow-900 rounded-xl p-3">' +
+              '<div class="text-sm">Награда</div>' +
+              '<div class="text-2xl font-bold">+' + totalReward + ' шаурмы</div>' +
+            '</div>' +
+          '</div>' +
+          '<button id="close-rain-btn" class="w-full bg-white text-purple-600 font-bold py-3 rounded-xl hover:bg-gray-100">' +
+            'Отлично!' +
+          '</button>' +
+        '</div>' +
+      '</div>';
     
-    // Эффект
-    var rect = drop.getBoundingClientRect();
-    if (typeof UI !== 'undefined') {
-      UI.showFloatingNumber(rect.left, rect.top, bonus);
-      UI.createParticles(rect.left, rect.top, 5, '✨');
-    }
-    
-    // Звук клика
+    // Звук
     if (typeof SoundManager !== 'undefined') {
-      SoundManager.click();
+      SoundManager.achievement();
     }
     
-    drop.remove();
+    // Кнопка закрытия
+    var closeBtn = document.getElementById('close-rain-btn');
+    if (closeBtn) {
+      closeBtn.onclick = function() {
+        container.remove();
+        self.pauseEvents = false;
+        if (typeof UI !== 'undefined') {
+          UI.updateCounters();
+        }
+      };
+    }
   },
   
   // Удалить эффект
