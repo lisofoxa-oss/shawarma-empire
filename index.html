@@ -6,11 +6,27 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <title>Империя Шаурмы</title>
+  
+  <!-- Telegram WebApp -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Стили -->
   <link rel="stylesheet" href="/css/styles.css">
+  
+  <!-- Supabase конфигурация (будет заменена через API) -->
+  <script>
+    // Эти значения будут загружены с сервера
+    window.SUPABASE_URL = '';
+    window.SUPABASE_KEY = '';
+  </script>
+  
   <style>
-    /* Встроенные критичные стили для загрузки */
     @keyframes float-up {
       0% { opacity: 1; transform: translateY(0) scale(1); }
       100% { opacity: 0; transform: translateY(-100px) scale(1.5); }
@@ -24,23 +40,17 @@
       25% { transform: translateX(-5px) rotate(-5deg); }
       75% { transform: translateX(5px) rotate(5deg); }
     }
-    .shake {
-      animation: shake 0.3s ease-in-out;
-    }
+    .shake { animation: shake 0.3s ease-in-out; }
     @keyframes slideInRight {
       from { transform: translateX(100%); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
     }
-    .achievement-popup {
-      animation: slideInRight 0.5s ease-out;
-    }
+    .achievement-popup { animation: slideInRight 0.5s ease-out; }
     @keyframes particle-burst {
       0% { opacity: 1; transform: translate(0, 0) scale(1); }
       100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
     }
-    .particle {
-      animation: particle-burst 0.8s ease-out forwards;
-    }
+    .particle { animation: particle-burst 0.8s ease-out forwards; }
     @keyframes golden-shine {
       0% { background-position: -200% center; }
       100% { background-position: 200% center; }
@@ -55,31 +65,13 @@
       50% { transform: scale(1.1); }
       100% { transform: scale(1); }
     }
-    .bounce-in {
-      animation: bounce-in 0.5s ease-out;
-    }
-    .overflow-y-auto::-webkit-scrollbar {
-      width: 8px;
-    }
-    .overflow-y-auto::-webkit-scrollbar-track {
-      background: #f1f1f1;
-      border-radius: 10px;
-    }
-    .overflow-y-auto::-webkit-scrollbar-thumb {
-      background: #fb923c;
-      border-radius: 10px;
-    }
-    .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-      background: #f97316;
-    }
-    /* Предотвращаем выделение текста на мобильных */
-    * {
-      -webkit-tap-highlight-color: transparent;
-      -webkit-touch-callout: none;
-    }
-    body {
-      overscroll-behavior: none;
-    }
+    .bounce-in { animation: bounce-in 0.5s ease-out; }
+    .overflow-y-auto::-webkit-scrollbar { width: 8px; }
+    .overflow-y-auto::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+    .overflow-y-auto::-webkit-scrollbar-thumb { background: #fb923c; border-radius: 10px; }
+    .overflow-y-auto::-webkit-scrollbar-thumb:hover { background: #f97316; }
+    * { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+    body { overscroll-behavior: none; }
   </style>
 </head>
 <body class="bg-gradient-to-br from-orange-100 via-yellow-50 to-red-100">
@@ -89,7 +81,7 @@
       <div class="text-center">
         <div class="text-6xl mb-4 animate-pulse">🌯</div>
         <div class="text-2xl font-bold text-orange-600">Загрузка игры...</div>
-        <div class="text-sm text-gray-500 mt-2">Подождите немного</div>
+        <div class="text-sm text-gray-500 mt-2">Подключение к серверу</div>
       </div>
     </div>
   </div>
@@ -148,41 +140,73 @@
     </div>
   </div>
 
-  <!-- Подключаем JavaScript модули в правильном порядке -->
+  <!-- Модальное окно лидерборда -->
+  <div id="leaderboard-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-3xl p-6 max-w-md mx-4 bounce-in w-full">
+      <div class="text-center">
+        <div class="text-4xl mb-2">🏆</div>
+        <h2 class="text-2xl font-bold text-orange-600 mb-4">Топ игроков</h2>
+        <div id="leaderboard-content" class="max-h-80 overflow-y-auto">
+          <!-- Будет заполнено динамически -->
+        </div>
+        <button onclick="document.getElementById('leaderboard-modal').classList.add('hidden')" 
+                class="mt-4 w-full bg-gray-300 text-gray-700 font-bold py-3 px-6 rounded-xl hover:bg-gray-400 transition-all">
+          Закрыть
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Загрузка конфигурации и скриптов -->
   <script>
-    // Логирование для отладки
-    console.log('🌯 Начало загрузки скриптов...');
-    console.log('Telegram WebApp доступен:', typeof window.Telegram !== 'undefined');
+    console.log('🌯 Загрузка игры...');
     
-    // Обработка ошибок загрузки скриптов
-    window.addEventListener('error', function(e) {
-      if (e.target && e.target.tagName === 'SCRIPT') {
-        console.error('Ошибка загрузки скрипта:', e.target.src);
-        var appEl = document.getElementById('app');
-        if (appEl) {
-          appEl.innerHTML = 
-            '<div class="flex items-center justify-center min-h-screen p-4">' +
-              '<div class="text-center bg-red-100 border-2 border-red-400 rounded-xl p-6">' +
-                '<div class="text-4xl mb-4">❌</div>' +
-                '<div class="text-xl font-bold text-red-600 mb-2">Ошибка загрузки</div>' +
-                '<div class="text-sm text-gray-700">Не удалось загрузить: ' + e.target.src + '</div>' +
-                '<button onclick="location.reload()" class="mt-4 bg-red-500 text-white px-4 py-2 rounded-lg">' +
-                  'Перезагрузить' +
-                '</button>' +
-              '</div>' +
-            '</div>';
-        }
-      }
-    }, true);
-  </script>
-  <script src="/js/config.js"></script>
-  <script src="/js/sounds.js"></script>
-  <script src="/js/storage.js"></script>
-  <script src="/js/game.js"></script>
-  <script src="/js/ui.js"></script>
-  <script src="/js/main.js"></script>
-  <script>
-    console.log('✅ Все скрипты загружены');
+    // Загружаем конфигурацию Supabase с сервера
+    fetch('/api/config')
+      .then(function(response) {
+        return response.json();
+      })
+      .then(function(config) {
+        window.SUPABASE_URL = config.supabaseUrl || '';
+        window.SUPABASE_KEY = config.supabaseKey || '';
+        console.log('✅ Конфигурация загружена');
+        
+        // Загружаем игровые скрипты
+        loadGameScripts();
+      })
+      .catch(function(error) {
+        console.log('⚠️ Не удалось загрузить конфигурацию, работаем локально');
+        loadGameScripts();
+      });
+    
+    function loadGameScripts() {
+      var scripts = [
+        '/js/config.js',
+        '/js/sounds.js',
+        '/js/storage.js',
+        '/js/supabase.js',
+        '/js/game.js',
+        '/js/ui.js',
+        '/js/main.js'
+      ];
+      
+      var loaded = 0;
+      
+      scripts.forEach(function(src) {
+        var script = document.createElement('script');
+        script.src = src;
+        script.onload = function() {
+          loaded++;
+          if (loaded === scripts.length) {
+            console.log('✅ Все скрипты загружены');
+          }
+        };
+        script.onerror = function() {
+          console.error('❌ Ошибка загрузки:', src);
+        };
+        document.body.appendChild(script);
+      });
+    }
   </script>
 </body>
 </html>
