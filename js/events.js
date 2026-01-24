@@ -177,7 +177,8 @@ var Events = {
     if (typeof Game === 'undefined') return;
     
     // Бонус = 10-60 секунд производства или минимум 500
-    var bonus = Math.max(Game.state.perSecond * (10 + Math.random() * 50), 500);
+    // Бонус = 5-15 секунд производства или минимум 25
+    var bonus = Math.max(Game.state.perSecond * (5 + Math.random() * 10), 25);
     bonus = Math.floor(bonus * Game.state.prestigeBonus);
     
     Game.state.shawarmas += bonus;
@@ -269,7 +270,8 @@ var Events = {
   collectRainDrop: function(drop) {
     if (!drop.parentNode) return;
     
-    var bonus = Math.max(Game.state.perSecond * 2, 50);
+    // Бонус за пойманную шаурму = 1 секунда производства или минимум 5
+    var bonus = Math.max(Game.state.perSecond * 1, 5);
     bonus = Math.floor(bonus * Game.state.prestigeBonus);
     
     Game.state.shawarmas += bonus;
