@@ -1,7 +1,7 @@
 // Конфигурация игры - здания, улучшения, достижения
 
 const GameConfig = {
-  // Настройки Supabase
+  // Настройки Supabase (заполни своими данными)
   SUPABASE_URL: 'YOUR_SUPABASE_URL',
   SUPABASE_KEY: 'YOUR_SUPABASE_ANON_KEY',
   
@@ -70,3 +70,6 @@ const GameConfig = {
     { id: 14, name: 'Мастер престижа', desc: 'Достигни 5 престижа', target: 5, type: 'prestige', unlocked: false, reward: 50000 },
   ]
 };
+
+// Проверка загрузки
+console.log('✅ config.js загружен');

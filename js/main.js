@@ -1,49 +1,51 @@
 // Запуск игры с диагностикой
+// Исправлено для совместимости с мобильными устройствами
 
 console.log('🚀 main.js загружен');
 
 // Проверяем доступность всех модулей
 function checkModules() {
-  const modules = {
+  var modules = {
     'GameConfig': typeof GameConfig !== 'undefined',
-    'Sounds': typeof Sounds !== 'undefined',
-    'Storage': typeof Storage !== 'undefined',
+    'SoundManager': typeof SoundManager !== 'undefined',
+    'GameStorage': typeof GameStorage !== 'undefined',
     'Game': typeof Game !== 'undefined',
-    'UI': typeof UI !== 'undefined',
-    'Telegram': typeof window.Telegram !== 'undefined'
+    'UI': typeof UI !== 'undefined'
   };
   
   console.log('📦 Проверка модулей:', modules);
   
-  const missing = Object.keys(modules).filter(key => !modules[key]);
+  var missing = [];
+  for (var key in modules) {
+    if (!modules[key]) {
+      missing.push(key);
+    }
+  }
+  
   if (missing.length > 0) {
-    console.error('❌ Отсутствуют модули:', missing);
+    console.error('❌ Отсутствуют модули:', missing.join(', '));
     
-    document.getElementById('app').innerHTML = `
-      <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="text-center bg-yellow-100 border-2 border-yellow-400 rounded-xl p-6 max-w-md">
-          <div class="text-4xl mb-4">⚠️</div>
-          <div class="text-xl font-bold text-yellow-800 mb-2">Ошибка загрузки модулей</div>
-          <div class="text-sm text-gray-700 mb-3">Не загружены: ${missing.join(', ')}</div>
-          <button onclick="location.reload()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-lg font-bold">
-            🔄 Перезагрузить
-          </button>
-        </div>
-      </div>
-    `;
+    var appEl = document.getElementById('app');
+    if (appEl) {
+      appEl.innerHTML = 
+        '<div class="flex items-center justify-center min-h-screen p-4">' +
+          '<div class="text-center bg-yellow-100 border-2 border-yellow-400 rounded-xl p-6 max-w-md">' +
+            '<div class="text-4xl mb-4">⚠️</div>' +
+            '<div class="text-xl font-bold text-yellow-800 mb-2">Ошибка загрузки модулей</div>' +
+            '<div class="text-sm text-gray-700 mb-3">Не загружены: ' + missing.join(', ') + '</div>' +
+            '<button onclick="location.reload()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-lg font-bold">' +
+              '🔄 Перезагрузить' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+    }
     return false;
   }
   
   return true;
 }
 
-// Ждём полной загрузки DOM
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initGame);
-} else {
-  initGame();
-}
-
+// Инициализация игры
 function initGame() {
   console.log('📋 DOM загружен, начинаем инициализацию...');
   
@@ -59,32 +61,46 @@ function initGame() {
     
     console.log('✅ Игра успешно запущена!');
     console.log('🌯 Империя Шаурмы готова к игре!');
-    console.log('Версия: 1.1.0 (Модульная)');
+    console.log('Версия: 1.2.0 (Исправленная)');
     
     // Telegram WebApp ready
     if (window.Telegram && window.Telegram.WebApp) {
-      window.Telegram.WebApp.ready();
-      console.log('📱 Telegram WebApp готов');
+      try {
+        window.Telegram.WebApp.ready();
+        console.log('📱 Telegram WebApp готов');
+      } catch (e) {
+        console.log('⚠️ Telegram WebApp.ready() не удался:', e.message);
+      }
     }
     
   } catch (error) {
     console.error('💥 Критическая ошибка при инициализации:', error);
     
-    document.getElementById('app').innerHTML = `
-      <div class="flex items-center justify-center min-h-screen p-4">
-        <div class="text-center bg-red-100 border-2 border-red-400 rounded-xl p-6 max-w-md">
-          <div class="text-4xl mb-4">💥</div>
-          <div class="text-xl font-bold text-red-600 mb-2">Критическая ошибка</div>
-          <div class="text-sm text-gray-700 mb-2">${error.message}</div>
-          <details class="text-left text-xs bg-white p-2 rounded mt-2">
-            <summary class="cursor-pointer font-semibold">Подробности</summary>
-            <pre class="mt-2 overflow-auto">${error.stack}</pre>
-          </details>
-          <button onclick="location.reload()" class="mt-4 bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-bold">
-            🔄 Перезагрузить
-          </button>
-        </div>
-      </div>
-    `;
+    var appEl = document.getElementById('app');
+    if (appEl) {
+      appEl.innerHTML = 
+        '<div class="flex items-center justify-center min-h-screen p-4">' +
+          '<div class="text-center bg-red-100 border-2 border-red-400 rounded-xl p-6 max-w-md">' +
+            '<div class="text-4xl mb-4">💥</div>' +
+            '<div class="text-xl font-bold text-red-600 mb-2">Критическая ошибка</div>' +
+            '<div class="text-sm text-gray-700 mb-2">' + (error.message || 'Неизвестная ошибка') + '</div>' +
+            '<details class="text-left text-xs bg-white p-2 rounded mt-2">' +
+              '<summary class="cursor-pointer font-semibold">Подробности</summary>' +
+              '<pre class="mt-2 overflow-auto">' + (error.stack || 'Нет стека вызовов') + '</pre>' +
+            '</details>' +
+            '<button onclick="location.reload()" class="mt-4 bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-bold">' +
+              '🔄 Перезагрузить' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+    }
   }
+}
+
+// Ждём полной загрузки DOM
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initGame);
+} else {
+  // DOM уже загружен
+  initGame();
 }

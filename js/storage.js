@@ -1,72 +1,135 @@
 // Система сохранения и загрузки игры
+// Переименовано в GameStorage чтобы не конфликтовать с браузерным Storage API
 
-const Storage = {
+var GameStorage = {
   userId: null,
+  storageKey: 'shawarma_game_',
   
   // Инициализация
-  init(userId) {
-    this.userId = userId;
+  init: function(userId) {
+    this.userId = userId || 'default';
+    console.log('✅ GameStorage инициализирован для пользователя:', this.userId);
+  },
+  
+  // Получить ключ хранилища
+  getKey: function() {
+    return this.storageKey + this.userId;
+  },
+  
+  // Проверка доступности localStorage
+  isAvailable: function() {
+    try {
+      var test = '__storage_test__';
+      localStorage.setItem(test, test);
+      localStorage.removeItem(test);
+      return true;
+    } catch (e) {
+      return false;
+    }
   },
   
   // Сохранение игры
-  save(gameState) {
+  save: function(gameState) {
+    if (!this.isAvailable()) {
+      console.warn('⚠️ localStorage недоступен');
+      return false;
+    }
+    
     try {
-      const saveData = {
-        shawarmas: gameState.shawarmas,
-        totalShawarmas: gameState.totalShawarmas,
-        lifetimeShawarmas: gameState.lifetimeShawarmas,
-        perClick: gameState.perClick,
-        clickCount: gameState.clickCount,
-        prestigeLevel: gameState.prestigeLevel,
-        prestigeBonus: gameState.prestigeBonus,
+      var saveData = {
+        shawarmas: gameState.shawarmas || 0,
+        totalShawarmas: gameState.totalShawarmas || 0,
+        lifetimeShawarmas: gameState.lifetimeShawarmas || 0,
+        perClick: gameState.perClick || 1,
+        clickCount: gameState.clickCount || 0,
+        prestigeLevel: gameState.prestigeLevel || 0,
+        prestigeBonus: gameState.prestigeBonus || 1,
         lastPlayTime: Date.now(),
-        dailyStreak: gameState.dailyStreak,
-        lastDailyReward: gameState.lastDailyReward,
-        buildings: gameState.buildings.map(b => ({ 
-          id: b.id, 
-          owned: b.owned, 
-          cost: b.cost 
-        })),
-        upgrades: gameState.upgrades.map(u => ({ 
-          id: u.id, 
-          purchased: u.purchased 
-        })),
-        achievements: gameState.achievements.map(a => ({ 
-          id: a.id, 
-          unlocked: a.unlocked 
-        }))
+        dailyStreak: gameState.dailyStreak || 0,
+        lastDailyReward: gameState.lastDailyReward || 0,
+        buildings: [],
+        upgrades: [],
+        achievements: []
       };
       
-      localStorage.setItem('shawarma_game_' + this.userId, JSON.stringify(saveData));
+      // Сохраняем здания
+      if (gameState.buildings && gameState.buildings.length) {
+        for (var i = 0; i < gameState.buildings.length; i++) {
+          var b = gameState.buildings[i];
+          saveData.buildings.push({ 
+            id: b.id, 
+            owned: b.owned, 
+            cost: b.cost 
+          });
+        }
+      }
+      
+      // Сохраняем улучшения
+      if (gameState.upgrades && gameState.upgrades.length) {
+        for (var j = 0; j < gameState.upgrades.length; j++) {
+          var u = gameState.upgrades[j];
+          saveData.upgrades.push({ 
+            id: u.id, 
+            purchased: u.purchased 
+          });
+        }
+      }
+      
+      // Сохраняем достижения
+      if (gameState.achievements && gameState.achievements.length) {
+        for (var k = 0; k < gameState.achievements.length; k++) {
+          var a = gameState.achievements[k];
+          saveData.achievements.push({ 
+            id: a.id, 
+            unlocked: a.unlocked 
+          });
+        }
+      }
+      
+      localStorage.setItem(this.getKey(), JSON.stringify(saveData));
       return true;
     } catch (error) {
-      console.error('Ошибка сохранения:', error);
+      console.error('❌ Ошибка сохранения:', error);
       return false;
     }
   },
   
   // Загрузка игры
-  load() {
+  load: function() {
+    if (!this.isAvailable()) {
+      console.warn('⚠️ localStorage недоступен');
+      return null;
+    }
+    
     try {
-      const saved = localStorage.getItem('shawarma_game_' + this.userId);
+      var saved = localStorage.getItem(this.getKey());
       if (saved) {
         return JSON.parse(saved);
       }
       return null;
     } catch (error) {
-      console.error('Ошибка загрузки:', error);
+      console.error('❌ Ошибка загрузки:', error);
       return null;
     }
   },
   
-  // Очистка сохранения (для престижа или сброса)
-  clear() {
+  // Очистка сохранения
+  clear: function() {
+    if (!this.isAvailable()) {
+      return false;
+    }
+    
     try {
-      localStorage.removeItem('shawarma_game_' + this.userId);
+      localStorage.removeItem(this.getKey());
       return true;
     } catch (error) {
-      console.error('Ошибка очистки:', error);
+      console.error('❌ Ошибка очистки:', error);
       return false;
     }
   }
 };
+
+// Алиас для совместимости (если где-то использовался Storage)
+var Storage = GameStorage;
+
+console.log('✅ storage.js загружен');
