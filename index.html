@@ -170,15 +170,16 @@
         window.SUPABASE_URL = config.supabaseUrl || '';
         window.SUPABASE_KEY = config.supabaseKey || '';
         console.log('✅ Конфигурация загружена');
-        
-        // Загружаем игровые скрипты
         loadGameScripts();
       })
       .catch(function(error) {
         console.log('⚠️ Не удалось загрузить конфигурацию, работаем локально');
+        window.SUPABASE_URL = '';
+        window.SUPABASE_KEY = '';
         loadGameScripts();
       });
     
+    // Загружаем скрипты ПОСЛЕДОВАТЕЛЬНО
     function loadGameScripts() {
       var scripts = [
         '/js/config.js',
@@ -190,22 +191,37 @@
         '/js/main.js'
       ];
       
-      var loaded = 0;
+      var index = 0;
       
-      scripts.forEach(function(src) {
+      function loadNext() {
+        if (index >= scripts.length) {
+          console.log('✅ Все скрипты загружены');
+          return;
+        }
+        
         var script = document.createElement('script');
-        script.src = src;
+        script.src = scripts[index];
         script.onload = function() {
-          loaded++;
-          if (loaded === scripts.length) {
-            console.log('✅ Все скрипты загружены');
-          }
+          console.log('✅ Загружен:', scripts[index]);
+          index++;
+          loadNext();
         };
         script.onerror = function() {
-          console.error('❌ Ошибка загрузки:', src);
+          console.error('❌ Ошибка загрузки:', scripts[index]);
+          document.getElementById('app').innerHTML = 
+            '<div class="flex items-center justify-center min-h-screen p-4">' +
+              '<div class="text-center bg-red-100 border-2 border-red-400 rounded-xl p-6">' +
+                '<div class="text-4xl mb-4">❌</div>' +
+                '<div class="text-xl font-bold text-red-600 mb-2">Ошибка загрузки</div>' +
+                '<div class="text-sm text-gray-700">Файл: ' + scripts[index] + '</div>' +
+                '<button onclick="location.reload()" class="mt-4 bg-red-500 text-white px-4 py-2 rounded-lg">Перезагрузить</button>' +
+              '</div>' +
+            '</div>';
         };
         document.body.appendChild(script);
-      });
+      }
+      
+      loadNext();
     }
   </script>
 </body>
