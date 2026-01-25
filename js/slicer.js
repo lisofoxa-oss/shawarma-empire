@@ -578,6 +578,11 @@ var Slicer = {
     if (this.spawnInterval) clearInterval(this.spawnInterval);
     if (this.gameLoop) clearInterval(this.gameLoop);
     
+    // Уведомляем систему челленджей
+    if (typeof Challenges !== 'undefined') {
+      Challenges.onMinigamePlayed();
+    }
+    
     // Сохраняем лучший результат
     var bestScore = parseInt(localStorage.getItem('slicer_best') || '0');
     var isNewBest = this.score > bestScore;

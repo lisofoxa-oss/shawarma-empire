@@ -1059,24 +1059,32 @@ var Game = {
   collectGoldenShawarma: function() {
     if (!this.goldenShawarma.active) return;
     
-    // Расчёт бонуса (5 секунд производства или минимум 25)
-    var bonus = Math.max(this.state.perSecond * this.goldenShawarma.bonusMultiplier, 25);
+    // Расчёт бонуса (3 секунды производства или минимум 10)
+    var bonus = Math.max(this.state.perSecond * this.goldenShawarma.bonusMultiplier, 10);
     bonus = Math.floor(bonus * this.state.prestigeBonus);
     
     this.state.shawarmas += bonus;
     this.state.totalShawarmas += bonus;
     this.state.lifetimeShawarmas += bonus;
     
+    // Уведомляем системы
+    if (typeof Challenges !== 'undefined') {
+      Challenges.onGoldenCaught();
+    }
+    if (typeof Skins !== 'undefined') {
+      Skins.onGoldenCaught();
+    }
+    
     // Эффекты
     var el = this.goldenShawarma.element;
     if (el && typeof UI !== 'undefined') {
       var rect = el.getBoundingClientRect();
       UI.createParticles(rect.left + rect.width/2, rect.top + rect.height/2, 20, '⭐');
-      UI.showFloatingNumber(rect.left + rect.width/2, rect.top, bonus, 'БОНУС!');
+      UI.showFloatingNumber(rect.left + rect.width/2, rect.top, bonus, '+');
     }
     
-    if (typeof SoundManager !== 'undefined') {
-      SoundManager.achievement();
+    if (typeof Sounds !== 'undefined') {
+      Sounds.achievement();
     }
     
     // Вибрация

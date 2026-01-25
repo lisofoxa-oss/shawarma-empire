@@ -161,6 +161,16 @@ var UI = {
             '<div class="minigame-name">Слайсер</div>' +
             '<div class="minigame-desc">Режь ингредиенты!</div>' +
           '</div>' +
+          '<div class="minigame-card" data-action="show-skins">' +
+            '<div class="minigame-icon">🎨</div>' +
+            '<div class="minigame-name">Скины</div>' +
+            '<div class="minigame-desc">Коллекция шаурм</div>' +
+          '</div>' +
+          '<div class="minigame-card" data-action="show-challenges">' +
+            '<div class="minigame-icon">📋</div>' +
+            '<div class="minigame-name">Челленджи</div>' +
+            '<div class="minigame-desc">Ежедневные задания</div>' +
+          '</div>' +
           '<div class="minigame-card" style="opacity:0.5;">' +
             '<div class="minigame-icon">🎰</div>' +
             '<div class="minigame-name">Скоро</div>' +
@@ -171,6 +181,7 @@ var UI = {
       '</div>';
     
     document.body.appendChild(modal);
+    var self = this;
     modal.onclick = function(e) {
       if (e.target === modal || e.target.dataset.action === 'close-modal') {
         modal.remove();
@@ -178,6 +189,142 @@ var UI = {
       if (e.target.closest('[data-action="start-slicer"]')) {
         modal.remove();
         if (typeof Slicer !== 'undefined') Slicer.start();
+      }
+      if (e.target.closest('[data-action="show-skins"]')) {
+        modal.remove();
+        self.showSkinsMenu();
+      }
+      if (e.target.closest('[data-action="show-challenges"]')) {
+        modal.remove();
+        self.showChallengesMenu();
+      }
+    };
+  },
+  
+  // Показать меню скинов
+  showSkinsMenu: function() {
+    var self = this;
+    if (typeof Skins === 'undefined') return;
+    
+    var modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'skins-modal';
+    
+    var html = '<div class="modal-content" style="max-height:80vh;overflow-y:auto;">' +
+      '<div class="modal-title">🎨 Коллекция скинов</div>' +
+      '<div style="text-align:center;margin-bottom:12px;color:var(--text-secondary);font-size:0.85rem;">' +
+        'Разблокировано: ' + Skins.unlocked.length + ' / ' + Skins.list.length +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">';
+    
+    for (var i = 0; i < Skins.list.length; i++) {
+      var skin = Skins.list[i];
+      var isUnlocked = Skins.unlocked.indexOf(skin.id) !== -1;
+      var isCurrent = Skins.current === skin.id;
+      
+      var cardStyle = isUnlocked 
+        ? (isCurrent ? 'border:2px solid var(--primary);background:rgba(255,107,53,0.15);' : 'border:1px solid var(--border-color);cursor:pointer;')
+        : 'border:1px solid var(--border-color);opacity:0.5;';
+      
+      html += '<div class="skin-card" data-skin="' + skin.id + '" style="padding:12px;border-radius:12px;text-align:center;' + cardStyle + '">' +
+        '<div style="font-size:2.5rem;">' + (isUnlocked ? skin.emoji : '🔒') + '</div>' +
+        '<div style="font-size:0.8rem;font-weight:700;margin-top:4px;color:var(--text-primary);">' + skin.name + '</div>' +
+        '<div style="font-size:0.65rem;color:var(--text-muted);margin-top:2px;">' + 
+          (isUnlocked ? skin.desc : skin.unlockDesc) + 
+        '</div>' +
+        (isCurrent ? '<div style="font-size:0.6rem;color:var(--primary);margin-top:4px;">✓ Выбран</div>' : '') +
+      '</div>';
+    }
+    
+    html += '</div><button class="modal-btn secondary" data-action="close-modal" style="margin-top:12px;">Закрыть</button></div>';
+    
+    modal.innerHTML = html;
+    document.body.appendChild(modal);
+    
+    modal.onclick = function(e) {
+      if (e.target === modal || e.target.dataset.action === 'close-modal') {
+        modal.remove();
+      }
+      var skinCard = e.target.closest('.skin-card');
+      if (skinCard && skinCard.dataset.skin) {
+        if (Skins.select(skinCard.dataset.skin)) {
+          modal.remove();
+          self.showSkinsMenu(); // Перезагрузить меню
+        }
+      }
+    };
+  },
+  
+  // Показать меню челленджей
+  showChallengesMenu: function() {
+    var self = this;
+    if (typeof Challenges === 'undefined') return;
+    
+    Challenges.checkNewDay();
+    
+    var modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'challenges-modal';
+    
+    var timeToReset = Challenges.getTimeToReset();
+    var hours = Math.floor(timeToReset / 3600000);
+    var minutes = Math.floor((timeToReset % 3600000) / 60000);
+    
+    var html = '<div class="modal-content">' +
+      '<div class="modal-title">📋 Ежедневные челленджи</div>' +
+      '<div style="text-align:center;margin-bottom:12px;">' +
+        '<span class="timer-badge">Обновление через <span class="time">' + hours + 'ч ' + minutes + 'м</span></span>' +
+      '</div>';
+    
+    if (Challenges.daily.length === 0) {
+      html += '<div style="text-align:center;padding:20px;color:var(--text-secondary);">Загрузка челленджей...</div>';
+    } else {
+      for (var i = 0; i < Challenges.daily.length; i++) {
+        var ch = Challenges.daily[i];
+        var progress = Challenges.getProgress(ch);
+        var isCompleted = progress >= ch.target;
+        var pct = Math.min((progress / ch.target) * 100, 100);
+        
+        var cardBg = ch.claimed ? 'rgba(34,197,94,0.1)' : (isCompleted ? 'rgba(255,215,0,0.1)' : 'var(--bg-card)');
+        var cardBorder = ch.claimed ? 'var(--success)' : (isCompleted ? 'var(--secondary)' : 'var(--border-color)');
+        
+        html += '<div class="challenge-card" style="padding:12px;margin-bottom:8px;border-radius:12px;background:' + cardBg + ';border:1px solid ' + cardBorder + ';">' +
+          '<div style="display:flex;align-items:center;gap:10px;">' +
+            '<div style="font-size:2rem;">' + ch.icon + '</div>' +
+            '<div style="flex:1;">' +
+              '<div style="font-weight:700;color:var(--text-primary);">' + ch.name + '</div>' +
+              '<div style="font-size:0.8rem;color:var(--text-secondary);">' + ch.desc + '</div>' +
+              '<div style="font-size:0.75rem;color:var(--secondary);margin-top:2px;">🎁 +' + self.formatNumber(ch.reward) + '</div>' +
+            '</div>' +
+          '</div>';
+        
+        if (ch.claimed) {
+          html += '<div style="text-align:center;margin-top:8px;color:var(--success);font-weight:700;font-size:0.85rem;">✓ Выполнено!</div>';
+        } else if (isCompleted) {
+          html += '<button class="claim-btn" data-challenge="' + ch.id + '" style="margin-top:8px;">Забрать награду!</button>';
+        } else {
+          html += '<div class="progress-bar" style="margin-top:8px;"><div class="progress-fill" style="width:' + pct + '%;"></div></div>' +
+            '<div style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">' + self.formatNumber(progress) + ' / ' + self.formatNumber(ch.target) + '</div>';
+        }
+        
+        html += '</div>';
+      }
+    }
+    
+    html += '<button class="modal-btn secondary" data-action="close-modal">Закрыть</button></div>';
+    
+    modal.innerHTML = html;
+    document.body.appendChild(modal);
+    
+    modal.onclick = function(e) {
+      if (e.target === modal || e.target.dataset.action === 'close-modal') {
+        modal.remove();
+      }
+      var claimBtn = e.target.closest('[data-challenge]');
+      if (claimBtn) {
+        Challenges.claimReward(claimBtn.dataset.challenge);
+        modal.remove();
+        self.showChallengesMenu(); // Перезагрузить
       }
     };
   },

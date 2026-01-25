@@ -59,9 +59,19 @@ function initGame() {
     console.log('🎮 Инициализация игры...');
     Game.init();
     
+    // Инициализируем дополнительные системы
+    if (typeof Challenges !== 'undefined') {
+      Challenges.init();
+    }
+    if (typeof Skins !== 'undefined') {
+      Skins.init();
+      // Обновляем отображение скина после загрузки UI
+      setTimeout(function() { Skins.updateDisplay(); }, 100);
+    }
+    
     console.log('✅ Игра успешно запущена!');
     console.log('🌯 Империя Шаурмы готова к игре!');
-    console.log('Версия: 1.2.0 (Исправленная)');
+    console.log('Версия: 2.0.0');
     
     // Telegram WebApp ready
     if (window.Telegram && window.Telegram.WebApp) {
