@@ -34,10 +34,10 @@ var Game = {
   goldenShawarma: {
     active: false,
     element: null,
-    minInterval: 20000, // Минимум 20 сек
-    maxInterval: 60000, // Максимум 60 сек
-    displayTime: 5000,  // Показывается 5 сек
-    bonusMultiplier: 5 // x5 от текущего perSecond или 25 минимум
+    minInterval: 90000,  // Минимум 1.5 минуты
+    maxInterval: 180000, // Максимум 3 минуты
+    displayTime: 6000,   // Показывается 6 сек
+    bonusMultiplier: 3   // x3 от текущего perSecond
   },
   
   // Информация о пользователе Telegram
@@ -194,7 +194,9 @@ var Game = {
           self.claimDailyReward();
           break;
         case 'show-leaderboard':
-          self.showLeaderboard();
+          if (typeof UI !== 'undefined') {
+            UI.showLeaderboard();
+          }
           break;
         case 'set-buy-mode':
           if (mode !== null && typeof UI !== 'undefined') {
@@ -204,7 +206,12 @@ var Game = {
           break;
         case 'open-minigames':
           if (typeof UI !== 'undefined') {
-            UI.openMinigamesMenu();
+            UI.showMinigamesMenu();
+          }
+          break;
+        case 'show-settings':
+          if (typeof UI !== 'undefined') {
+            UI.showSettings();
           }
           break;
         case 'claim-order':
@@ -556,7 +563,9 @@ var Game = {
     var baseProduction = 0;
     for (var i = 0; i < this.state.buildings.length; i++) {
       var b = this.state.buildings[i];
-      baseProduction += b.owned * b.production;
+      // Бонус +1% за каждое купленное здание этого типа
+      var quantityBonus = 1 + (b.owned * 0.01);
+      baseProduction += b.owned * b.production * quantityBonus;
     }
     
     var productionMultiplier = 1;
@@ -792,7 +801,7 @@ var Game = {
   },
   
   openPrestigeModal: function() {
-    if (this.state.totalShawarmas < 1000000) {
+    if (this.state.totalShawarmas < 10000000) {
       if (typeof UI !== 'undefined') {
         UI.showAchievementPopup({
           name: 'Недостаточно прогресса',
