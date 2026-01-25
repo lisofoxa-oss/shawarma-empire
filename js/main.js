@@ -68,6 +68,9 @@ function initGame() {
       // Обновляем отображение скина после загрузки UI
       setTimeout(function() { Skins.updateDisplay(); }, 100);
     }
+    if (typeof Referral !== 'undefined') {
+      Referral.init();
+    }
     
     console.log('✅ Игра успешно запущена!');
     console.log('🌯 Империя Шаурмы готова к игре!');

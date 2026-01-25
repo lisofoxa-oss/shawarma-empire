@@ -224,7 +224,7 @@ var UI = {
       
       var cardStyle = isUnlocked 
         ? (isCurrent ? 'border:2px solid var(--primary);background:rgba(255,107,53,0.15);' : 'border:1px solid var(--border-color);cursor:pointer;')
-        : 'border:1px solid var(--border-color);opacity:0.4;';
+        : 'border:1px solid var(--border-color);opacity:0.4;cursor:pointer;';
       
       html += '<div class="skin-card" data-skin="' + skin.id + '" style="padding:8px;border-radius:10px;text-align:center;background:var(--bg-card);overflow:hidden;' + cardStyle + '">' +
         '<div style="font-size:2rem;">' + (isUnlocked ? skin.emoji : '🔒') + '</div>' +
@@ -244,10 +244,113 @@ var UI = {
       }
       var skinCard = e.target.closest('.skin-card');
       if (skinCard && skinCard.dataset.skin) {
-        if (Skins.select(skinCard.dataset.skin)) {
-          modal.remove();
-          self.showSkinsMenu(); // Перезагрузить меню
-        }
+        modal.remove();
+        self.showSkinDetails(skinCard.dataset.skin);
+      }
+    };
+  },
+  
+  // Показать детали скина
+  showSkinDetails: function(skinId) {
+    var self = this;
+    var skin = null;
+    for (var i = 0; i < Skins.list.length; i++) {
+      if (Skins.list[i].id === skinId) {
+        skin = Skins.list[i];
+        break;
+      }
+    }
+    if (!skin) return;
+    
+    var isUnlocked = Skins.unlocked.indexOf(skin.id) !== -1;
+    var isCurrent = Skins.current === skin.id;
+    
+    // Прогресс разблокировки
+    var progress = 0;
+    var target = skin.unlockTarget || 0;
+    var progressText = '';
+    
+    if (!isUnlocked && skin.unlockType !== 'default') {
+      switch (skin.unlockType) {
+        case 'clicks':
+          progress = Game.state.clickCount;
+          progressText = this.formatNumber(progress) + ' / ' + this.formatNumber(target) + ' кликов';
+          break;
+        case 'total':
+          progress = Game.state.lifetimeShawarmas;
+          progressText = this.formatNumber(progress) + ' / ' + this.formatNumber(target) + ' шаурмы';
+          break;
+        case 'buildings':
+          progress = Game.getTotalBuildings();
+          progressText = progress + ' / ' + target + ' зданий';
+          break;
+        case 'upgrades':
+          var upgCount = 0;
+          for (var j = 0; j < Game.state.upgrades.length; j++) {
+            if (Game.state.upgrades[j].purchased) upgCount++;
+          }
+          progress = upgCount;
+          progressText = progress + ' / ' + target + ' улучшений';
+          break;
+        case 'prestige':
+          progress = Game.state.prestigeLevel;
+          progressText = progress + ' / ' + target + ' престиж';
+          break;
+        case 'golden':
+          progress = Skins.stats.goldenCaught;
+          progressText = progress + ' / ' + target + ' золотых';
+          break;
+      }
+    }
+    
+    var pct = target > 0 ? Math.min((progress / target) * 100, 100) : 100;
+    
+    var modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'skin-detail-modal';
+    
+    var btnHtml = '';
+    if (isUnlocked && !isCurrent) {
+      btnHtml = '<button class="modal-btn primary" data-action="select-skin">Выбрать</button>';
+    } else if (isCurrent) {
+      btnHtml = '<div style="text-align:center;color:var(--success);font-weight:700;padding:12px;">✓ Используется</div>';
+    } else {
+      btnHtml = '<div style="margin-bottom:12px;">' +
+        '<div class="progress-bar" style="height:8px;"><div class="progress-fill" style="width:' + pct + '%;"></div></div>' +
+        '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;text-align:center;">' + progressText + '</div>' +
+      '</div>';
+    }
+    
+    modal.innerHTML = 
+      '<div class="modal-content" style="text-align:center;">' +
+        '<div style="font-size:5rem;margin-bottom:8px;">' + (isUnlocked ? skin.emoji : '🔒') + '</div>' +
+        '<div class="modal-title" style="margin-bottom:4px;">' + skin.name + '</div>' +
+        '<div style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:12px;">' + skin.desc + '</div>' +
+        '<div style="background:var(--bg-card);border-radius:10px;padding:12px;margin-bottom:12px;">' +
+          '<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px;">Как получить:</div>' +
+          '<div style="font-size:0.9rem;color:' + (isUnlocked ? 'var(--success)' : 'var(--text-primary)') + ';font-weight:600;">' + 
+            (isUnlocked ? '✅ ' : '🎯 ') + skin.unlockDesc + 
+          '</div>' +
+        '</div>' +
+        btnHtml +
+        '<button class="modal-btn secondary" data-action="back-to-skins">← Назад к коллекции</button>' +
+      '</div>';
+    
+    document.body.appendChild(modal);
+    
+    modal.onclick = function(e) {
+      if (e.target === modal) {
+        modal.remove();
+        self.showSkinsMenu();
+      }
+      if (e.target.dataset.action === 'back-to-skins') {
+        modal.remove();
+        self.showSkinsMenu();
+      }
+      if (e.target.dataset.action === 'select-skin') {
+        Skins.select(skinId);
+        modal.remove();
+        self.showSkinsMenu();
       }
     };
   },
@@ -730,6 +833,7 @@ var UI = {
             '<button class="theme-btn neon ' + (self.currentTheme === 'neon' ? 'active' : '') + '" data-theme="neon" title="Неон"></button>' +
           '</div>' +
         '</div>' +
+        '<button class="modal-btn primary" data-action="show-referral" style="margin-bottom:8px;">👥 Пригласить друзей</button>' +
         '<button class="modal-btn secondary" data-action="close-modal">Закрыть</button>' +
       '</div>';
     
@@ -744,8 +848,111 @@ var UI = {
         self.setTheme(themeBtn.dataset.theme);
         modal.remove();
       }
+      if (e.target.dataset.action === 'show-referral') {
+        modal.remove();
+        self.showReferralMenu();
+      }
+    };
+  },
+  
+  // Показать меню рефералов
+  showReferralMenu: function() {
+    var self = this;
+    if (typeof Referral === 'undefined') {
+      this.showAchievementPopup({
+        emoji: '⚠️',
+        name: 'Недоступно',
+        desc: 'Реферальная система загружается',
+        reward: 0
+      });
+      return;
+    }
+    
+    var modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'referral-modal';
+    
+    // Следующая веха
+    var nextMilestone = null;
+    for (var i = 0; i < Referral.rewards.milestones.length; i++) {
+      var m = Referral.rewards.milestones[i];
+      if (Referral.referralCount < m.count) {
+        nextMilestone = m;
+        break;
+      }
+    }
+    
+    var milestonesHtml = '';
+    for (var j = 0; j < Referral.rewards.milestones.length; j++) {
+      var milestone = Referral.rewards.milestones[j];
+      var achieved = Referral.referralCount >= milestone.count;
+      milestonesHtml += '<div style="display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;' + 
+        (achieved ? 'background:rgba(34,197,94,0.15);' : 'opacity:0.5;') + '">' +
+        '<span style="font-size:1.2rem;">' + milestone.emoji + '</span>' +
+        '<span style="flex:1;font-size:0.8rem;">' + milestone.count + ' друзей</span>' +
+        '<span style="font-size:0.75rem;color:var(--secondary);">+' + self.formatNumber(milestone.reward) + '</span>' +
+      '</div>';
+    }
+    
+    modal.innerHTML = 
+      '<div class="modal-content">' +
+        '<div class="modal-title">👥 Пригласи друзей</div>' +
+        
+        // Статистика
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">' +
+          '<div style="background:var(--bg-card);border-radius:12px;padding:12px;text-align:center;">' +
+            '<div style="font-size:1.5rem;font-weight:700;color:var(--primary);">' + Referral.referralCount + '</div>' +
+            '<div style="font-size:0.7rem;color:var(--text-muted);">Приглашено</div>' +
+          '</div>' +
+          '<div style="background:var(--bg-card);border-radius:12px;padding:12px;text-align:center;">' +
+            '<div style="font-size:1.5rem;font-weight:700;color:var(--secondary);">+' + self.formatNumber(Referral.rewards.perReferral) + '</div>' +
+            '<div style="font-size:0.7rem;color:var(--text-muted);">За друга</div>' +
+          '</div>' +
+        '</div>' +
+        
+        // Твой код
+        '<div style="background:var(--bg-card);border-radius:12px;padding:12px;margin-bottom:12px;text-align:center;">' +
+          '<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px;">Твой код:</div>' +
+          '<div style="font-size:1.2rem;font-weight:700;color:var(--text-primary);letter-spacing:2px;">' + Referral.myCode + '</div>' +
+        '</div>' +
+        
+        // Награды
+        '<div style="background:var(--bg-card);border-radius:12px;padding:12px;margin-bottom:12px;">' +
+          '<div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);margin-bottom:8px;">🎁 Награды:</div>' +
+          '<div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:4px;">' +
+            '• Ты получаешь: <span style="color:var(--secondary);">+' + self.formatNumber(Referral.rewards.forInviter) + '</span> за каждого друга' +
+          '</div>' +
+          '<div style="font-size:0.75rem;color:var(--text-secondary);">' +
+            '• Друг получает: <span style="color:var(--secondary);">+' + self.formatNumber(Referral.rewards.forInvited) + '</span> при старте' +
+          '</div>' +
+        '</div>' +
+        
+        // Вехи
+        '<div style="background:var(--bg-card);border-radius:12px;padding:12px;margin-bottom:12px;">' +
+          '<div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);margin-bottom:8px;">🏆 Вехи:</div>' +
+          '<div style="display:flex;flex-direction:column;gap:4px;">' + milestonesHtml + '</div>' +
+        '</div>' +
+        
+        // Кнопки
+        '<button class="modal-btn primary" data-action="share-referral" style="margin-bottom:8px;">📤 Поделиться ссылкой</button>' +
+        '<button class="modal-btn secondary" data-action="copy-referral" style="margin-bottom:8px;">📋 Скопировать код</button>' +
+        '<button class="modal-btn secondary" data-action="close-modal">Закрыть</button>' +
+      '</div>';
+    
+    document.body.appendChild(modal);
+    
+    modal.onclick = function(e) {
+      if (e.target === modal || e.target.dataset.action === 'close-modal') {
+        modal.remove();
+      }
+      if (e.target.dataset.action === 'share-referral') {
+        Referral.share();
+      }
+      if (e.target.dataset.action === 'copy-referral') {
+        Referral.copyToClipboard(Referral.myCode);
+      }
     };
   }
 };
 
-console.log('✅ ui.js v3.0 загружен');
+console.log('✅ ui.js v3.1 загружен');
