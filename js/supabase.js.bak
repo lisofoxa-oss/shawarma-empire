@@ -158,11 +158,6 @@ var DB = {
       last_play_time: new Date().toISOString()
     };
     
-    // Добавляем реферальный код если есть
-    if (typeof Referral !== 'undefined' && Referral.myCode) {
-      userData.referral_code = Referral.myCode;
-    }
-    
     this.client
       .from('users')
       .upsert(userData, { onConflict: 'id' })

@@ -1,9 +1,12 @@
-// Реферальная система
+// Реферальная система с облачной синхронизацией
 // js/referral.js
 
 var Referral = {
-  // Реферальный код игрока
+  // Реферальный код игрока (8 символов)
   myCode: null,
+  
+  // Код загружен из облака?
+  codeFromCloud: false,
   
   // Кто пригласил (код реферера)
   referredBy: null,
@@ -34,27 +37,167 @@ var Referral = {
   // Инициализация
   init: function() {
     this.load();
-    this.generateCode();
-    this.checkStartParam();
+    
+    // Пытаемся загрузить код из облака
+    this.loadFromCloud();
+    
     console.log('✅ Referral система инициализирована');
   },
   
-  // Генерация уникального кода
+  // Загрузить код из облака
+  loadFromCloud: function() {
+    var self = this;
+    
+    if (typeof DB === 'undefined' || !DB.isReady || !DB.userId) {
+      // Облако недоступно - генерируем локальный код
+      if (!this.myCode) {
+        this.generateCode();
+      }
+      this.checkStartParam();
+      return;
+    }
+    
+    // Запрашиваем код из базы
+    DB.client
+      .from('users')
+      .select('referral_code')
+      .eq('id', DB.userId)
+      .single()
+      .then(function(response) {
+        if (response.data && response.data.referral_code) {
+          // Код уже есть в базе - используем его
+          self.myCode = response.data.referral_code;
+          self.codeFromCloud = true;
+          self.save();
+          console.log('📥 Реферальный код загружен из облака:', self.myCode);
+        } else {
+          // Кода нет в базе - генерируем новый уникальный
+          self.generateUniqueCode(function(code) {
+            self.myCode = code;
+            self.save();
+            // Код сохранится в базу при следующем saveUser
+            console.log('🆕 Создан новый реферальный код:', self.myCode);
+          });
+        }
+        
+        // Проверяем start параметр после загрузки кода
+        self.checkStartParam();
+        
+        // Загружаем статистику рефералов
+        self.loadReferralStats();
+      })
+      .catch(function(err) {
+        console.error('Ошибка загрузки реферального кода:', err);
+        if (!self.myCode) {
+          self.generateCode();
+        }
+        self.checkStartParam();
+      });
+  },
+  
+  // Генерация уникального кода с проверкой в базе
+  generateUniqueCode: function(callback) {
+    var self = this;
+    var code = this.createRandomCode();
+    
+    if (typeof DB === 'undefined' || !DB.isReady) {
+      callback(code);
+      return;
+    }
+    
+    // Проверяем что такого кода нет в базе
+    DB.client
+      .from('users')
+      .select('id')
+      .eq('referral_code', code)
+      .then(function(response) {
+        if (response.data && response.data.length > 0) {
+          // Код уже существует - генерируем новый
+          console.log('⚠️ Код уже существует, генерируем новый...');
+          self.generateUniqueCode(callback);
+        } else {
+          // Код уникален
+          callback(code);
+        }
+      })
+      .catch(function() {
+        // Ошибка - просто используем сгенерированный код
+        callback(code);
+      });
+  },
+  
+  // Создать случайный код
+  createRandomCode: function() {
+    // SH + 8 символов (без похожих: 0/O, 1/I/L)
+    var chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    var code = 'SH';
+    for (var i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  },
+  
+  // Простая генерация кода (для оффлайн режима)
   generateCode: function() {
     if (this.myCode) return;
-    
-    // Используем Telegram ID если есть
-    if (typeof Game !== 'undefined' && Game.userInfo && Game.userInfo.id) {
-      this.myCode = 'SH' + Game.userInfo.id;
-    } else {
-      // Генерируем случайный код
-      var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      this.myCode = 'SH';
-      for (var i = 0; i < 6; i++) {
-        this.myCode += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-    }
+    this.myCode = this.createRandomCode();
     this.save();
+  },
+  
+  // Загрузить статистику рефералов из базы
+  loadReferralStats: function() {
+    var self = this;
+    
+    if (typeof DB === 'undefined' || !DB.isReady || !this.myCode) {
+      return;
+    }
+    
+    // Считаем сколько пользователей имеют наш код как referred_by
+    DB.client
+      .from('users')
+      .select('id', { count: 'exact' })
+      .eq('referred_by', this.myCode)
+      .then(function(response) {
+        if (response.count !== null && response.count !== undefined) {
+          var oldCount = self.referralCount;
+          self.referralCount = response.count;
+          
+          // Если появились новые рефералы - даём награду
+          if (self.referralCount > oldCount) {
+            var newReferrals = self.referralCount - oldCount;
+            self.giveReferralReward(newReferrals);
+          }
+          
+          self.save();
+          console.log('📊 Рефералов:', self.referralCount);
+        }
+      })
+      .catch(function(err) {
+        console.log('Не удалось загрузить статистику рефералов:', err);
+      });
+  },
+  
+  // Дать награду за новых рефералов
+  giveReferralReward: function(count) {
+    var reward = this.rewards.perReferral * count;
+    
+    if (typeof Game !== 'undefined') {
+      Game.state.shawarmas += reward;
+      Game.state.totalShawarmas += reward;
+      Game.state.lifetimeShawarmas += reward;
+    }
+    
+    if (typeof UI !== 'undefined') {
+      UI.showAchievementPopup({
+        emoji: '👥',
+        name: count + ' новых друзей!',
+        desc: 'Спасибо за приглашения',
+        reward: reward
+      });
+    }
+    
+    // Проверяем вехи
+    this.checkMilestones();
   },
   
   // Проверка start параметра из Telegram
@@ -63,23 +206,25 @@ var Referral = {
     if (this.referredBy) return;
     
     try {
+      var refCode = null;
+      
       // Telegram WebApp передаёт start параметр
       if (typeof Game !== 'undefined' && Game.isTelegram && Game.tg) {
         var initData = Game.tg.initDataUnsafe;
         if (initData && initData.start_param) {
-          var refCode = initData.start_param;
-          // Не своя ссылка
-          if (refCode !== this.myCode && refCode.startsWith('SH')) {
-            this.applyReferral(refCode);
-          }
+          refCode = initData.start_param;
         }
       }
       
       // Также проверяем URL параметр (для браузера)
-      var urlParams = new URLSearchParams(window.location.search);
-      var refFromUrl = urlParams.get('ref') || urlParams.get('start');
-      if (refFromUrl && !this.referredBy && refFromUrl !== this.myCode) {
-        this.applyReferral(refFromUrl);
+      if (!refCode) {
+        var urlParams = new URLSearchParams(window.location.search);
+        refCode = urlParams.get('ref') || urlParams.get('start');
+      }
+      
+      // Применяем реферальный код
+      if (refCode && refCode !== this.myCode && refCode.startsWith('SH')) {
+        this.applyReferral(refCode);
       }
     } catch (e) {
       console.log('Referral check error:', e);
@@ -90,18 +235,59 @@ var Referral = {
   applyReferral: function(code) {
     if (this.referredBy) return false;
     if (code === this.myCode) return false;
+    if (!code.startsWith('SH')) return false;
     
-    this.referredBy = code;
-    this.rewardClaimed = false;
-    this.save();
+    var self = this;
     
-    // Даём награду приглашённому
-    this.claimInvitedReward();
-    
-    // Уведомляем сервер (если есть облако)
-    this.notifyServer(code);
+    // Проверяем что такой код существует в базе
+    if (typeof DB !== 'undefined' && DB.isReady) {
+      DB.client
+        .from('users')
+        .select('id')
+        .eq('referral_code', code)
+        .single()
+        .then(function(response) {
+          if (response.data) {
+            // Код существует - применяем
+            self.referredBy = code;
+            self.rewardClaimed = false;
+            self.save();
+            self.saveReferredByToCloud(code);
+            self.claimInvitedReward();
+          } else {
+            console.log('⚠️ Реферальный код не найден:', code);
+          }
+        })
+        .catch(function() {
+          // Ошибка - всё равно применяем локально
+          self.referredBy = code;
+          self.save();
+          self.claimInvitedReward();
+        });
+    } else {
+      // Оффлайн - просто применяем
+      this.referredBy = code;
+      this.save();
+      this.claimInvitedReward();
+    }
     
     return true;
+  },
+  
+  // Сохранить referred_by в облако
+  saveReferredByToCloud: function(code) {
+    if (typeof DB === 'undefined' || !DB.isReady || !DB.userId) return;
+    
+    DB.client
+      .from('users')
+      .update({ referred_by: code })
+      .eq('id', DB.userId)
+      .then(function() {
+        console.log('✅ Реферер сохранён в облако');
+      })
+      .catch(function(err) {
+        console.error('Ошибка сохранения реферера:', err);
+      });
   },
   
   // Забрать награду приглашённого
@@ -125,32 +311,6 @@ var Referral = {
         reward: this.rewards.forInvited
       });
     }
-    
-    this.save();
-  },
-  
-  // Уведомить сервер о реферале
-  notifyServer: function(inviterCode) {
-    // Если есть Supabase - записываем реферал
-    if (typeof DB !== 'undefined' && DB.isReady) {
-      // Можно добавить запись в БД
-      console.log('Referral recorded:', inviterCode, '->', this.myCode);
-    }
-  },
-  
-  // Добавить реферала (вызывается когда кто-то использовал твой код)
-  addReferral: function() {
-    this.referralCount++;
-    
-    // Награда за реферала
-    if (typeof Game !== 'undefined') {
-      Game.state.shawarmas += this.rewards.perReferral;
-      Game.state.totalShawarmas += this.rewards.perReferral;
-      Game.state.lifetimeShawarmas += this.rewards.perReferral;
-    }
-    
-    // Проверяем вехи
-    this.checkMilestones();
     
     this.save();
   },
@@ -181,12 +341,13 @@ var Referral = {
         }
       }
     }
+    
+    this.save();
   },
   
   // Получить ссылку для приглашения
   getInviteLink: function() {
-    // Для Telegram бота
-    var botUsername = 'ShawarmaEmpireBot'; // Замени на свой
+    var botUsername = 'ShawarmaEmpireBot'; // Замени на своего бота
     return 'https://t.me/' + botUsername + '?start=' + this.myCode;
   },
   
@@ -200,7 +361,7 @@ var Referral = {
   
   // Поделиться ссылкой
   share: function() {
-    var text = this.getShareText();
+    var self = this;
     
     // Telegram share
     if (typeof Game !== 'undefined' && Game.isTelegram && Game.tg) {
@@ -209,50 +370,69 @@ var Referral = {
           encodeURIComponent(this.getInviteLink()) + 
           '&text=' + encodeURIComponent('🌯 Присоединяйся к Империи Шаурмы! Бонус при старте!'));
         return;
-      } catch (e) {}
+      } catch (e) {
+        console.log('Telegram share failed:', e);
+      }
     }
     
     // Fallback - копируем в буфер
-    this.copyToClipboard(text);
+    this.copyToClipboard(this.getShareText());
   },
   
   // Копировать в буфер
   copyToClipboard: function(text) {
-    try {
+    var self = this;
+    
+    // Пробуем современный API
+    if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function() {
-        if (typeof UI !== 'undefined') {
-          UI.showAchievementPopup({
-            emoji: '📋',
-            name: 'Скопировано!',
-            desc: 'Ссылка в буфере обмена',
-            reward: 0
-          });
-        }
+        self.showCopySuccess();
+      }).catch(function() {
+        self.fallbackCopy(text);
       });
-    } catch (e) {
-      // Fallback для старых браузеров
-      var textarea = document.createElement('textarea');
-      textarea.value = text;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      
-      if (typeof UI !== 'undefined') {
-        UI.showAchievementPopup({
-          emoji: '📋',
-          name: 'Скопировано!',
-          desc: 'Ссылка в буфере обмена',
-          reward: 0
-        });
-      }
+    } else {
+      self.fallbackCopy(text);
     }
   },
   
-  // Сохранение
+  // Fallback копирование
+  fallbackCopy: function(text) {
+    var textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    
+    try {
+      document.execCommand('copy');
+      this.showCopySuccess();
+    } catch (e) {
+      console.error('Copy failed:', e);
+    }
+    
+    document.body.removeChild(textarea);
+  },
+  
+  // Показать успех копирования
+  showCopySuccess: function() {
+    if (typeof UI !== 'undefined') {
+      UI.showAchievementPopup({
+        emoji: '📋',
+        name: 'Скопировано!',
+        desc: 'Код в буфере обмена',
+        reward: 0
+      });
+    }
+  },
+  
+  // Сохранение в localStorage
   save: function() {
     var data = {
       myCode: this.myCode,
+      codeFromCloud: this.codeFromCloud,
       referredBy: this.referredBy,
       referralCount: this.referralCount,
       rewardClaimed: this.rewardClaimed,
@@ -261,13 +441,14 @@ var Referral = {
     localStorage.setItem('shawarma_referral', JSON.stringify(data));
   },
   
-  // Загрузка
+  // Загрузка из localStorage
   load: function() {
     try {
       var saved = localStorage.getItem('shawarma_referral');
       if (saved) {
         var data = JSON.parse(saved);
         this.myCode = data.myCode || null;
+        this.codeFromCloud = data.codeFromCloud || false;
         this.referredBy = data.referredBy || null;
         this.referralCount = data.referralCount || 0;
         this.rewardClaimed = data.rewardClaimed || false;
@@ -279,4 +460,4 @@ var Referral = {
   }
 };
 
-console.log('✅ referral.js загружен');
+console.log('✅ referral.js v2.0 загружен');
