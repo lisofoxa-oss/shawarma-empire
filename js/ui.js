@@ -199,12 +199,12 @@ var UI = {
     
     // Загружаем данные
     if (typeof DB !== 'undefined' && DB.isReady) {
-      DB.getLeaderboard(function(data) {
+      DB.getLeaderboard(20, function(data) {
         var list = document.getElementById('leaderboard-list');
         if (!list) return;
         
         if (!data || data.length === 0) {
-          list.innerHTML = '<div style="padding:20px;color:var(--text-secondary);">Пока нет игроков</div>';
+          list.innerHTML = '<div style="padding:20px;color:var(--text-secondary);">Пока нет игроков в рейтинге.<br><span style="font-size:0.8rem;">Играй и попади в топ!</span></div>';
           return;
         }
         
@@ -212,14 +212,21 @@ var UI = {
         for (var i = 0; i < data.length; i++) {
           var player = data[i];
           var rankClass = i === 0 ? 'gold' : (i === 1 ? 'silver' : (i === 2 ? 'bronze' : ''));
+          var name = player.first_name || player.username || 'Игрок #' + (player.user_id ? player.user_id.toString().slice(-4) : '???');
           html += '<div class="leaderboard-item">' +
             '<div class="leaderboard-rank ' + rankClass + '">' + (i + 1) + '</div>' +
-            '<div class="leaderboard-name">' + (player.display_name || 'Игрок') + '</div>' +
+            '<div class="leaderboard-name">' + name + '</div>' +
             '<div class="leaderboard-score">' + self.formatNumber(player.lifetime_shawarmas || 0) + '</div>' +
           '</div>';
         }
         list.innerHTML = html;
       });
+    } else {
+      // DB не готов
+      var list = document.getElementById('leaderboard-list');
+      if (list) {
+        list.innerHTML = '<div style="padding:20px;color:var(--text-secondary);">Рейтинг недоступен.<br><span style="font-size:0.8rem;">Облачные сохранения отключены.</span></div>';
+      }
     }
     
     modal.onclick = function(e) {
@@ -283,7 +290,7 @@ var UI = {
               '<span class="text">Империя Шаурмы</span>' +
             '</h1>' +
             '<div class="header-btns">' +
-              '<span style="font-size:0.7rem;opacity:0.5;margin-right:4px;">' + cloud + '</span>' +
+              '<span class="cloud-badge">' + cloud + '</span>' +
               '<button data-action="open-minigames" class="header-btn" title="Мини-игры">🎮</button>' +
               (Game.cloudSaveEnabled ? '<button data-action="show-leaderboard" class="header-btn" title="Лидерборд">🏆</button>' : '') +
               (canPrestige ? '<button data-action="open-prestige" class="header-btn golden" title="Престиж">⭐</button>' : '') +
@@ -355,7 +362,8 @@ var UI = {
       
       // Бонус за количество зданий (+1% за каждое купленное)
       var quantityBonus = 1 + (b.owned * 0.01);
-      var actualProduction = b.production * state.prestigeBonus * quantityBonus;
+      var perUnitProduction = b.production * state.prestigeBonus * quantityBonus;
+      var totalProduction = b.owned * perUnitProduction;
       
       var cardClass = 'game-card' + (canBuy ? ' affordable' : ' disabled');
       
@@ -364,8 +372,8 @@ var UI = {
         '<div class="card-info">' +
           '<div class="card-title">' + b.name + (buyInfo.count > 1 ? ' <span style="color:var(--success);">(+' + buyInfo.count + ')</span>' : '') + '</div>' +
           '<div class="card-desc">' + b.desc + '</div>' +
-          '<div class="card-stats">+' + this.formatNumber(actualProduction) + '/с' + (b.owned > 0 ? ' <span style="color:var(--text-muted);font-size:0.65rem;">(+' + Math.floor(b.owned) + '% бонус)</span>' : '') + '</div>' +
-          '<div class="card-owned">Куплено: ' + b.owned + '</div>' +
+          '<div class="card-stats">+' + this.formatNumber(perUnitProduction) + '/с за шт.' + (b.owned > 0 ? ' <span style="color:var(--text-muted);font-size:0.65rem;">(+' + Math.floor(b.owned) + '% бонус)</span>' : '') + '</div>' +
+          (b.owned > 0 ? '<div class="card-owned" style="color:var(--accent);">Всего: ' + this.formatNumber(totalProduction) + '/с · Куплено: ' + b.owned + '</div>' : '<div class="card-owned">Куплено: ' + b.owned + '</div>') +
         '</div>' +
         '<div class="card-cost">' +
           '<div class="cost-value">' + this.formatNumber(buyInfo.totalCost) + '</div>' +
