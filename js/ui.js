@@ -77,6 +77,113 @@ var UI = {
     
     el = document.getElementById('counter-clicks');
     if (el) el.textContent = state.clickCount;
+    
+    // Обновляем индикатор меню
+    this.updateMenuIndicator();
+  },
+  
+  // ФУНДАМЕНТ: Обновление состояния кнопок (доступность покупок)
+  updateButtonStates: function() {
+    var state = Game.state;
+    var discount = typeof Game.getBuildingDiscount === 'function' ? Game.getBuildingDiscount() : 1;
+    
+    // Обновляем кнопки зданий
+    var buildingCards = document.querySelectorAll('[data-action="buy-building"]');
+    for (var i = 0; i < buildingCards.length; i++) {
+      var card = buildingCards[i];
+      var buildingId = parseInt(card.dataset.id);
+      var building = null;
+      
+      for (var j = 0; j < state.buildings.length; j++) {
+        if (state.buildings[j].id === buildingId) {
+          building = state.buildings[j];
+          break;
+        }
+      }
+      
+      if (!building) continue;
+      
+      var cost = Math.floor(building.cost * discount);
+      var canBuy = state.shawarmas >= cost;
+      
+      // Обновляем классы
+      card.classList.remove('affordable', 'disabled');
+      card.classList.add(canBuy ? 'affordable' : 'disabled');
+    }
+    
+    // Обновляем кнопки улучшений
+    var upgradeCards = document.querySelectorAll('[data-action="buy-upgrade"]');
+    for (var k = 0; k < upgradeCards.length; k++) {
+      var uCard = upgradeCards[k];
+      var upgradeId = parseInt(uCard.dataset.id);
+      var upgrade = null;
+      
+      for (var l = 0; l < state.upgrades.length; l++) {
+        if (state.upgrades[l].id === upgradeId) {
+          upgrade = state.upgrades[l];
+          break;
+        }
+      }
+      
+      if (!upgrade) continue;
+      
+      if (upgrade.purchased) {
+        uCard.classList.remove('affordable', 'disabled');
+        uCard.classList.add('purchased');
+      } else {
+        var canBuyUpgrade = state.shawarmas >= upgrade.cost;
+        uCard.classList.remove('affordable', 'disabled', 'purchased');
+        uCard.classList.add(canBuyUpgrade ? 'affordable' : 'disabled');
+      }
+    }
+  },
+  
+  // Проверка есть ли новые события для индикатора меню
+  hasNewEvents: function() {
+    // Проверяем челленджи
+    if (typeof Challenges !== 'undefined') {
+      for (var i = 0; i < Challenges.daily.length; i++) {
+        var ch = Challenges.daily[i];
+        if (ch.progress >= ch.target && !ch.claimed) {
+          return true; // Есть готовый челлендж
+        }
+      }
+    }
+    
+    // Проверяем слайсер
+    if (typeof Slicer !== 'undefined') {
+      Slicer.checkReset();
+      if (Slicer.gamesPlayed < Slicer.maxGames) {
+        // Можно играть - не критично
+      }
+    }
+    
+    return false;
+  },
+  
+  // Обновление индикатора кнопки меню
+  updateMenuIndicator: function() {
+    var menuBtn = document.querySelector('.menu-btn');
+    if (!menuBtn) return;
+    
+    var hasEvents = this.hasNewEvents();
+    
+    if (hasEvents) {
+      menuBtn.classList.add('has-notification');
+      // Показываем подсказку если ещё не показывали
+      if (!this.notificationShown) {
+        this.notificationShown = true;
+        this.showAchievementPopup({
+          emoji: '🎯',
+          name: 'Задание выполнено!',
+          desc: 'Открой меню чтобы забрать награду',
+          reward: 0
+        });
+      }
+    } else {
+      menuBtn.classList.remove('has-notification');
+      this.notificationShown = false;
+    }
   },
   
   // Принудительное обновление контента вкладки
@@ -396,7 +503,7 @@ var UI = {
     this.showActivitiesMenu();
   },
   
-  // Показать меню скинов
+  // Показать меню скинов (с кнопкой Назад)
   showSkinsMenu: function() {
     var self = this;
     if (typeof Skins === 'undefined') return;
@@ -406,7 +513,11 @@ var UI = {
     modal.id = 'skins-modal';
     
     var html = '<div class="modal-content" style="max-height:80vh;overflow-y:auto;">' +
-      '<div class="modal-title">🎨 Коллекция скинов</div>' +
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">' +
+        '<button data-action="back-to-menu" class="back-btn">←</button>' +
+        '<div class="modal-title" style="margin-bottom:0;flex:1;">🎨 Коллекция скинов</div>' +
+        '<button data-action="close-all" class="close-btn">✕</button>' +
+      '</div>' +
       '<div style="text-align:center;margin-bottom:12px;color:var(--text-secondary);font-size:0.85rem;">' +
         'Разблокировано: ' + Skins.unlocked.length + ' / ' + Skins.list.length +
       '</div>' +
@@ -428,14 +539,19 @@ var UI = {
       '</div>';
     }
     
-    html += '</div><button class="modal-btn secondary" data-action="close-modal" style="margin-top:12px;">Закрыть</button></div>';
+    html += '</div><button class="modal-btn secondary" data-action="back-to-menu" style="margin-top:12px;">← Назад</button></div>';
     
     modal.innerHTML = html;
     document.body.appendChild(modal);
     
     modal.onclick = function(e) {
-      if (e.target === modal || e.target.dataset.action === 'close-modal') {
+      if (e.target === modal || e.target.dataset.action === 'close-all') {
         modal.remove();
+      }
+      if (e.target.dataset.action === 'back-to-menu' || e.target.closest('[data-action="back-to-menu"]')) {
+        modal.remove();
+        self.showActivitiesMenu();
+        return;
       }
       var skinCard = e.target.closest('.skin-card');
       if (skinCard && skinCard.dataset.skin) {
@@ -566,7 +682,11 @@ var UI = {
     var minutes = Math.floor((timeToReset % 3600000) / 60000);
     
     var html = '<div class="modal-content">' +
-      '<div class="modal-title">📋 Ежедневные челленджи</div>' +
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">' +
+        '<button data-action="back-to-menu" class="back-btn">←</button>' +
+        '<div class="modal-title" style="margin-bottom:0;flex:1;">🎯 Ежедневные челленджи</div>' +
+        '<button data-action="close-all" class="close-btn">✕</button>' +
+      '</div>' +
       '<div style="text-align:center;margin-bottom:12px;">' +
         '<span class="timer-badge">Обновление через <span class="time">' + hours + 'ч ' + minutes + 'м</span></span>' +
       '</div>';
@@ -589,7 +709,7 @@ var UI = {
             '<div style="flex:1;">' +
               '<div style="font-weight:700;color:var(--text-primary);">' + ch.name + '</div>' +
               '<div style="font-size:0.8rem;color:var(--text-secondary);">' + ch.desc + '</div>' +
-              '<div style="font-size:0.75rem;color:var(--primary);margin-top:2px;">🌶️ +' + ch.reward + ' специй</div>' +
+              '<div style="font-size:0.75rem;color:var(--primary);margin-top:2px;">🌶️ +' + ch.reward + ' перчиков</div>' +
             '</div>' +
           '</div>';
         
@@ -606,14 +726,19 @@ var UI = {
       }
     }
     
-    html += '<button class="modal-btn secondary" data-action="close-modal">Закрыть</button></div>';
+    html += '<button class="modal-btn secondary" data-action="back-to-menu">← Назад</button></div>';
     
     modal.innerHTML = html;
     document.body.appendChild(modal);
     
     modal.onclick = function(e) {
-      if (e.target === modal || e.target.dataset.action === 'close-modal') {
+      if (e.target === modal || e.target.dataset.action === 'close-all') {
         modal.remove();
+      }
+      if (e.target.dataset.action === 'back-to-menu' || e.target.closest('[data-action="back-to-menu"]')) {
+        modal.remove();
+        self.showActivitiesMenu();
+        return;
       }
       var claimBtn = e.target.closest('[data-challenge]');
       if (claimBtn) {
@@ -632,36 +757,102 @@ var UI = {
     modal.id = 'leaderboard-modal';
     modal.innerHTML = 
       '<div class="modal-content leaderboard-modal">' +
-        '<div class="modal-title">🏆 Топ игроков</div>' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">' +
+          '<button data-action="back-to-menu" class="back-btn">←</button>' +
+          '<div class="modal-title" style="margin-bottom:0;flex:1;">🏆 Топ игроков</div>' +
+          '<button data-action="close-all" class="close-btn">✕</button>' +
+        '</div>' +
         '<div id="leaderboard-list" style="text-align:center;padding:20px;color:var(--text-secondary);">Загрузка...</div>' +
-        '<button class="modal-btn secondary" data-action="close-modal">Закрыть</button>' +
+        '<button class="modal-btn secondary" data-action="back-to-menu">← Назад</button>' +
       '</div>';
     
     document.body.appendChild(modal);
     
     // Загружаем данные
     if (typeof DB !== 'undefined' && DB.isReady) {
-      DB.getLeaderboard(20, function(data) {
-        var list = document.getElementById('leaderboard-list');
-        if (!list) return;
+      // Сначала получаем общее количество игроков
+      DB.client.from('users').select('id', { count: 'exact', head: true }).then(function(countRes) {
+        var totalPlayers = countRes.count || 0;
+        var showRealNames = totalPlayers >= 200; // Показывать имена только если 200+ игроков
         
-        if (!data || data.length === 0) {
-          list.innerHTML = '<div style="padding:20px;color:var(--text-secondary);">Пока нет игроков в рейтинге.<br><span style="font-size:0.8rem;">Играй и попади в топ!</span></div>';
-          return;
-        }
-        
-        var html = '';
-        for (var i = 0; i < data.length; i++) {
-          var player = data[i];
-          var rankClass = i === 0 ? 'gold' : (i === 1 ? 'silver' : (i === 2 ? 'bronze' : ''));
-          var name = player.first_name || player.username || 'Игрок #' + (player.user_id ? player.user_id.toString().slice(-4) : '???');
-          html += '<div class="leaderboard-item">' +
-            '<div class="leaderboard-rank ' + rankClass + '">' + (i + 1) + '</div>' +
-            '<div class="leaderboard-name">' + name + '</div>' +
-            '<div class="leaderboard-score">' + self.formatNumber(player.lifetime_shawarmas || 0) + '</div>' +
+        DB.getLeaderboard(20, function(data) {
+          var list = document.getElementById('leaderboard-list');
+          if (!list) return;
+          
+          if (!data || data.length === 0) {
+            list.innerHTML = '<div style="padding:20px;color:var(--text-secondary);">Пока нет игроков в рейтинге.<br><span style="font-size:0.8rem;">Играй и попади в топ!</span></div>';
+            return;
+          }
+          
+          var html = '';
+          var myUserId = DB.userId;
+          var myPosition = -1;
+          var foundInTop = false;
+          
+          // Находим свою позицию
+          for (var j = 0; j < data.length; j++) {
+            if (data[j].user_id === myUserId || data[j].id === myUserId) {
+              myPosition = j;
+              foundInTop = true;
+              break;
+            }
+          }
+          
+          // Показываем топ 10
+          var showCount = Math.min(data.length, 10);
+          for (var i = 0; i < showCount; i++) {
+            var player = data[i];
+            var isMe = (player.user_id === myUserId || player.id === myUserId);
+            var rankClass = i === 0 ? 'gold' : (i === 1 ? 'silver' : (i === 2 ? 'bronze' : ''));
+            
+            // Анонимизация имён до 200 игроков
+            var name;
+            if (isMe) {
+              name = '👤 Ты';
+            } else if (showRealNames) {
+              name = player.first_name || player.username || 'Игрок';
+            } else {
+              name = '🎭 Неизвестный игрок';
+            }
+            
+            var itemStyle = isMe ? 'background:rgba(255,107,53,0.15);border:1px solid var(--primary);' : '';
+            
+            html += '<div class="leaderboard-item" style="' + itemStyle + '">' +
+              '<div class="leaderboard-rank ' + rankClass + '">' + (i + 1) + '</div>' +
+              '<div class="leaderboard-name">' + name + '</div>' +
+              '<div class="leaderboard-score">' + self.formatNumber(player.lifetime_shawarmas || 0) + '</div>' +
+            '</div>';
+          }
+          
+          // Если игрока нет в топ-10, показываем его позицию отдельно
+          if (!foundInTop && myUserId) {
+            // Ищем свою позицию среди всех данных
+            for (var k = 10; k < data.length; k++) {
+              if (data[k].user_id === myUserId || data[k].id === myUserId) {
+                myPosition = k;
+                break;
+              }
+            }
+            
+            if (myPosition >= 10) {
+              html += '<div style="text-align:center;padding:8px;color:var(--text-muted);font-size:0.8rem;">• • •</div>';
+              var myData = data[myPosition];
+              html += '<div class="leaderboard-item" style="background:rgba(255,107,53,0.15);border:1px solid var(--primary);">' +
+                '<div class="leaderboard-rank">' + (myPosition + 1) + '</div>' +
+                '<div class="leaderboard-name">👤 Ты</div>' +
+                '<div class="leaderboard-score">' + self.formatNumber(myData.lifetime_shawarmas || 0) + '</div>' +
+              '</div>';
+            }
+          }
+          
+          // Показываем общее количество игроков
+          html += '<div style="text-align:center;margin-top:12px;padding:8px;background:var(--bg-card);border-radius:8px;font-size:0.75rem;color:var(--text-secondary);">' +
+            'Всего игроков: ' + totalPlayers + 
+            (totalPlayers < 200 ? '<br><span style="font-size:0.65rem;opacity:0.7;">Имена откроются при 200+ игроках</span>' : '') +
           '</div>';
-        }
-        list.innerHTML = html;
+          
+          list.innerHTML = html;
+        });
       });
     } else {
       // DB не готов
@@ -672,8 +863,12 @@ var UI = {
     }
     
     modal.onclick = function(e) {
-      if (e.target === modal || e.target.dataset.action === 'close-modal') {
+      if (e.target === modal || e.target.dataset.action === 'close-all') {
         modal.remove();
+      }
+      if (e.target.dataset.action === 'back-to-menu' || e.target.closest('[data-action="back-to-menu"]')) {
+        modal.remove();
+        self.showActivitiesMenu();
       }
     };
   },
@@ -1225,9 +1420,10 @@ var UI = {
     
     modal.innerHTML = 
       '<div class="modal-content" style="max-height:85vh;overflow-y:auto;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-          '<div class="modal-title" style="margin-bottom:0;">👥 Пригласи друзей</div>' +
-          '<button data-action="close-modal" style="background:var(--bg-card);border:none;width:32px;height:32px;border-radius:50%;font-size:1.2rem;cursor:pointer;">✕</button>' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">' +
+          '<button data-action="back-to-menu" class="back-btn">←</button>' +
+          '<div class="modal-title" style="margin-bottom:0;flex:1;">👥 Пригласи друзей</div>' +
+          '<button data-action="close-all" class="close-btn">✕</button>' +
         '</div>' +
         
         // Статистика
@@ -1250,7 +1446,7 @@ var UI = {
         
         // Награды
         '<div style="background:var(--bg-card);border-radius:12px;padding:12px;margin-bottom:12px;">' +
-          '<div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);margin-bottom:8px;">🌶️ Награды специями:</div>' +
+          '<div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);margin-bottom:8px;">🌶️ Награды перчиками:</div>' +
           '<div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:4px;">' +
             '• Ты получаешь: <span style="color:var(--primary);">+' + Referral.rewards.forInviter + ' 🌶️</span> за каждого друга' +
           '</div>' +
@@ -1261,21 +1457,26 @@ var UI = {
         
         // Вехи
         '<div style="background:var(--bg-card);border-radius:12px;padding:12px;margin-bottom:12px;">' +
-          '<div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);margin-bottom:8px;">🏆 Вехи (специи):</div>' +
+          '<div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);margin-bottom:8px;">🏆 Вехи (перчики):</div>' +
           '<div style="display:flex;flex-direction:column;gap:4px;">' + milestonesHtml + '</div>' +
         '</div>' +
         
         // Кнопки
         '<button class="modal-btn primary" data-action="share-referral" style="margin-bottom:8px;">📤 Поделиться ссылкой</button>' +
         '<button class="modal-btn secondary" data-action="copy-referral" style="margin-bottom:8px;">📋 Скопировать код</button>' +
-        '<button class="modal-btn secondary" data-action="close-modal">Закрыть</button>' +
+        '<button class="modal-btn secondary" data-action="back-to-menu">← Назад</button>' +
       '</div>';
     
     document.body.appendChild(modal);
     
     modal.onclick = function(e) {
-      if (e.target === modal || e.target.dataset.action === 'close-modal') {
+      if (e.target === modal || e.target.dataset.action === 'close-all') {
         modal.remove();
+      }
+      if (e.target.dataset.action === 'back-to-menu' || e.target.closest('[data-action="back-to-menu"]')) {
+        modal.remove();
+        self.showActivitiesMenu();
+        return;
       }
       if (e.target.dataset.action === 'share-referral') {
         Referral.share();
