@@ -151,57 +151,131 @@ var UI = {
   },
   
   // Показать модалку мини-игр
-  showMinigamesMenu: function() {
+  // Показать меню активностей (мини-игры + лидерборд + челленджи)
+  showActivitiesMenu: function() {
+    var self = this;
     var modal = document.createElement('div');
     modal.className = 'modal-overlay';
-    modal.id = 'minigames-modal';
-    modal.innerHTML = 
-      '<div class="modal-content">' +
-        '<div class="modal-title">🎮 Мини-игры</div>' +
-        '<div class="minigames-menu">' +
-          '<div class="minigame-card" data-action="start-slicer">' +
-            '<div class="minigame-icon">🔪</div>' +
-            '<div class="minigame-name">Слайсер</div>' +
-            '<div class="minigame-desc">Режь ингредиенты!</div>' +
-          '</div>' +
-          '<div class="minigame-card" data-action="show-skins">' +
-            '<div class="minigame-icon">🎨</div>' +
-            '<div class="minigame-name">Скины</div>' +
-            '<div class="minigame-desc">Коллекция шаурм</div>' +
-          '</div>' +
-          '<div class="minigame-card" data-action="show-challenges">' +
-            '<div class="minigame-icon">📋</div>' +
-            '<div class="minigame-name">Челленджи</div>' +
-            '<div class="minigame-desc">Ежедневные задания</div>' +
-          '</div>' +
-          '<div class="minigame-card" style="opacity:0.5;">' +
-            '<div class="minigame-icon">🎰</div>' +
-            '<div class="minigame-name">Скоро</div>' +
-            '<div class="minigame-desc">В разработке</div>' +
-          '</div>' +
-        '</div>' +
-        '<button class="modal-btn secondary" data-action="close-modal">Закрыть</button>' +
+    modal.id = 'activities-modal';
+    
+    // Статистика слайсера
+    var slicerBest = localStorage.getItem('slicer_best') || 0;
+    var slicerGames = 3;
+    if (typeof Slicer !== 'undefined') {
+      Slicer.checkReset();
+      slicerGames = Slicer.maxGames - Slicer.gamesPlayed;
+    }
+    
+    var html = '<div class="modal-content" style="max-height:85vh;overflow-y:auto;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+        '<div class="modal-title" style="margin-bottom:0;">📋 Активности</div>' +
+        '<button data-action="close-modal" style="background:var(--bg-card);border:none;width:32px;height:32px;border-radius:50%;font-size:1.2rem;cursor:pointer;">✕</button>' +
       '</div>';
     
+    // Мини-игры
+    html += '<div style="margin-bottom:16px;">' +
+      '<div style="font-size:0.85rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">🎮 Мини-игры</div>' +
+      '<div data-action="play-slicer" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-card);border-radius:12px;cursor:pointer;border:1px solid var(--border-color);">' +
+        '<div style="font-size:2.5rem;">🔪</div>' +
+        '<div style="flex:1;">' +
+          '<div style="font-weight:700;color:var(--text-primary);">Слайсер</div>' +
+          '<div style="font-size:0.75rem;color:var(--text-secondary);">Нарезай ингредиенты!</div>' +
+          '<div style="font-size:0.7rem;color:var(--accent);margin-top:2px;">🏆 Рекорд: ' + slicerBest + '</div>' +
+        '</div>' +
+        '<div style="text-align:right;">' +
+          '<div style="font-size:1.2rem;font-weight:700;color:' + (slicerGames > 0 ? 'var(--success)' : 'var(--text-muted)') + ';">' + slicerGames + '/3</div>' +
+          '<div style="font-size:0.65rem;color:var(--text-muted);">игр</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+    
+    // Челленджи
+    if (typeof Challenges !== 'undefined') {
+      Challenges.checkNewDay();
+      var completedChallenges = 0;
+      for (var i = 0; i < Challenges.daily.length; i++) {
+        if (Challenges.daily[i].claimed) completedChallenges++;
+      }
+      
+      html += '<div style="margin-bottom:16px;">' +
+        '<div style="font-size:0.85rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">📋 Ежедневные задания</div>' +
+        '<div data-action="show-challenges" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-card);border-radius:12px;cursor:pointer;border:1px solid var(--border-color);">' +
+          '<div style="font-size:2.5rem;">🎯</div>' +
+          '<div style="flex:1;">' +
+            '<div style="font-weight:700;color:var(--text-primary);">Челленджи</div>' +
+            '<div style="font-size:0.75rem;color:var(--text-secondary);">Выполняй задания за 🌶️</div>' +
+          '</div>' +
+          '<div style="text-align:right;">' +
+            '<div style="font-size:1.2rem;font-weight:700;color:' + (completedChallenges < 3 ? 'var(--primary)' : 'var(--success)') + ';">' + completedChallenges + '/3</div>' +
+            '<div style="font-size:0.65rem;color:var(--text-muted);">готово</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }
+    
+    // Лидерборд
+    if (Game.cloudSaveEnabled) {
+      html += '<div style="margin-bottom:16px;">' +
+        '<div style="font-size:0.85rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">🏆 Соревнование</div>' +
+        '<div data-action="show-leaderboard-modal" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-card);border-radius:12px;cursor:pointer;border:1px solid var(--border-color);">' +
+          '<div style="font-size:2.5rem;">🏆</div>' +
+          '<div style="flex:1;">' +
+            '<div style="font-weight:700;color:var(--text-primary);">Топ игроков</div>' +
+            '<div style="font-size:0.75rem;color:var(--text-secondary);">Рейтинг лучших магнатов</div>' +
+          '</div>' +
+          '<div style="font-size:1.5rem;">→</div>' +
+        '</div>' +
+      '</div>';
+    }
+    
+    // Коллекция скинов
+    html += '<div style="margin-bottom:16px;">' +
+      '<div style="font-size:0.85rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">🎨 Коллекция</div>' +
+      '<div data-action="show-skins-modal" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-card);border-radius:12px;cursor:pointer;border:1px solid var(--border-color);">' +
+        '<div style="font-size:2.5rem;">🎨</div>' +
+        '<div style="flex:1;">' +
+          '<div style="font-weight:700;color:var(--text-primary);">Скины</div>' +
+          '<div style="font-size:0.75rem;color:var(--text-secondary);">Кастомизируй шаурму</div>' +
+        '</div>' +
+        '<div style="font-size:1.5rem;">→</div>' +
+      '</div>' +
+    '</div>';
+    
+    html += '<button class="modal-btn secondary" data-action="close-modal">Закрыть</button></div>';
+    
+    modal.innerHTML = html;
     document.body.appendChild(modal);
-    var self = this;
+    
     modal.onclick = function(e) {
       if (e.target === modal || e.target.dataset.action === 'close-modal') {
         modal.remove();
       }
-      if (e.target.closest('[data-action="start-slicer"]')) {
+      
+      var target = e.target.closest('[data-action]');
+      if (!target) return;
+      
+      if (target.dataset.action === 'play-slicer') {
         modal.remove();
-        if (typeof Slicer !== 'undefined') Slicer.start();
+        if (typeof Slicer !== 'undefined') Slicer.openMenu();
       }
-      if (e.target.closest('[data-action="show-skins"]')) {
-        modal.remove();
-        self.showSkinsMenu();
-      }
-      if (e.target.closest('[data-action="show-challenges"]')) {
+      if (target.dataset.action === 'show-challenges') {
         modal.remove();
         self.showChallengesMenu();
       }
+      if (target.dataset.action === 'show-leaderboard-modal') {
+        modal.remove();
+        self.showLeaderboard();
+      }
+      if (target.dataset.action === 'show-skins-modal') {
+        modal.remove();
+        self.showSkinsMenu();
+      }
     };
+  },
+  
+  // Старое меню мини-игр (для совместимости)
+  showMinigamesMenu: function() {
+    this.showActivitiesMenu();
   },
   
   // Показать меню скинов
@@ -537,17 +611,17 @@ var UI = {
           '<div class="header-row">' +
             '<h1 class="header-title">' +
               '<span class="emoji">🌯</span>' +
-              '<span class="text">Шаурма' + (cloud === '☁️' ? '☁️' : '') + '</span>' +
+              '<span class="text">Империя Шаурмы</span>' +
+              (cloud === '☁️' ? '<span class="cloud-icon">☁️</span>' : '') +
             '</h1>' +
             '<div class="header-btns">' +
               '<button data-action="open-shop" class="spice-badge" title="Магазин">' +
                 '<span class="spice-icon">🌶️</span>' +
                 '<span id="counter-spices" class="spice-count">' + (typeof Currency !== 'undefined' ? Currency.spices : 0) + '</span>' +
               '</button>' +
-              '<button data-action="open-minigames" class="header-btn-sm" title="Игры">🎮</button>' +
-              (Game.cloudSaveEnabled ? '<button data-action="show-leaderboard" class="header-btn-sm" title="Топ">🏆</button>' : '') +
+              '<button data-action="open-activities" class="header-btn-sm" title="Активности">📋</button>' +
               (canPrestige ? '<button data-action="open-prestige" class="header-btn-sm golden" title="Престиж">⭐</button>' : '') +
-              '<button data-action="show-settings" class="header-btn-sm" title="Меню">⚙️</button>' +
+              '<button data-action="show-settings" class="header-btn-sm" title="Настройки">⚙️</button>' +
             '</div>' +
           '</div>' +
           '<div class="stats-grid">' +
@@ -825,12 +899,29 @@ var UI = {
   // Показать настройки
   showSettings: function() {
     var self = this;
+    var musicEnabled = typeof Music !== 'undefined' ? Music.enabled : false;
+    
     var modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.id = 'settings-modal';
     modal.innerHTML = 
       '<div class="modal-content">' +
         '<div class="modal-title">⚙️ Настройки</div>' +
+        
+        // Музыка
+        '<div style="margin-bottom:16px;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg-card);border-radius:12px;border:1px solid var(--border-color);">' +
+            '<div>' +
+              '<div style="font-weight:600;color:var(--text-primary);">🎵 Фоновая музыка</div>' +
+              '<div style="font-size:0.75rem;color:var(--text-secondary);">Расслабляющие мелодии</div>' +
+            '</div>' +
+            '<button data-action="toggle-music" class="toggle-btn ' + (musicEnabled ? 'active' : '') + '">' +
+              '<span class="toggle-slider"></span>' +
+            '</button>' +
+          '</div>' +
+        '</div>' +
+        
+        // Тема
         '<div style="margin-bottom:16px;">' +
           '<div style="font-size:0.85rem;margin-bottom:8px;color:var(--text-secondary);">Тема оформления:</div>' +
           '<div class="theme-picker">' +
@@ -857,6 +948,16 @@ var UI = {
       if (e.target.dataset.action === 'show-referral') {
         modal.remove();
         self.showReferralMenu();
+      }
+      if (e.target.dataset.action === 'toggle-music' || e.target.closest('[data-action="toggle-music"]')) {
+        if (typeof Music !== 'undefined') {
+          var isOn = Music.toggle();
+          var btn = modal.querySelector('[data-action="toggle-music"]');
+          if (btn) {
+            if (isOn) btn.classList.add('active');
+            else btn.classList.remove('active');
+          }
+        }
       }
     };
   },

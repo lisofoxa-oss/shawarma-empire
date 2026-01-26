@@ -154,6 +154,10 @@ var Game = {
       if (typeof SoundManager !== 'undefined') {
         SoundManager.unlock();
       }
+      // Автозапуск музыки если была включена
+      if (typeof Music !== 'undefined') {
+        Music.tryAutoplay();
+      }
       
       var target = e.target;
       while (target && target !== document) {
@@ -206,7 +210,12 @@ var Game = {
           break;
         case 'open-minigames':
           if (typeof UI !== 'undefined') {
-            UI.showMinigamesMenu();
+            UI.showActivitiesMenu();
+          }
+          break;
+        case 'open-activities':
+          if (typeof UI !== 'undefined') {
+            UI.showActivitiesMenu();
           }
           break;
         case 'show-settings':

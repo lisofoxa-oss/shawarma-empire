@@ -63,6 +63,9 @@ function initGame() {
     if (typeof Currency !== 'undefined') {
       Currency.init();
     }
+    if (typeof Music !== 'undefined') {
+      Music.init();
+    }
     if (typeof Slicer !== 'undefined') {
       Slicer.init();
     }
