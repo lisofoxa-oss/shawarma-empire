@@ -568,11 +568,11 @@ var UI = {
         ? (isCurrent ? 'border:2px solid var(--primary);background:rgba(255,107,53,0.15);' : 'border:1px solid var(--border-color);cursor:pointer;')
         : 'border:1px solid var(--border-color);opacity:0.4;cursor:pointer;';
       
-      // Фиксированная высота для всех карточек
-      html += '<div class="skin-card" data-skin="' + skin.id + '" style="padding:8px;border-radius:12px;text-align:center;background:var(--bg-card);height:80px;display:flex;flex-direction:column;justify-content:center;align-items:center;' + cardStyle + '">' +
-        '<div style="font-size:2rem;line-height:1;">' + (isUnlocked ? skin.emoji : '🔒') + '</div>' +
-        '<div style="font-size:0.65rem;font-weight:600;margin-top:4px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">' + skin.name + '</div>' +
-        '<div style="font-size:0.55rem;height:12px;line-height:12px;margin-top:2px;color:' + (isCurrent ? 'var(--primary)' : 'transparent') + ';">' + (isCurrent ? '✓' : '·') + '</div>' +
+      // Фиксированный размер карточки, текст обрезается, галочка под текстом
+      html += '<div class="skin-card" data-skin="' + skin.id + '" style="padding:6px;border-radius:10px;text-align:center;background:var(--bg-card);height:85px;display:flex;flex-direction:column;justify-content:space-between;align-items:center;overflow:hidden;' + cardStyle + '">' +
+        '<div style="font-size:2rem;line-height:1;flex-shrink:0;">' + (isUnlocked ? skin.emoji : '🔒') + '</div>' +
+        '<div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;flex-shrink:0;">' + skin.name + '</div>' +
+        '<div style="font-size:0.5rem;height:10px;line-height:10px;flex-shrink:0;color:' + (isCurrent ? 'var(--primary)' : 'transparent') + ';">' + (isCurrent ? '✓' : '·') + '</div>' +
       '</div>';
     }
     
