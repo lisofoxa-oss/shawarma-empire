@@ -393,21 +393,57 @@ var UI = {
       '<div class="menu-item-arrow">→</div>' +
     '</div></div>';
     
-    // === ПРОГРЕСС ===
+    // === ПРОГРЕСС (ПРЕСТИЖ) - всегда показываем ===
+    var prestigeThreshold = 10000000; // 10M для престижа
+    var currentTotal = Game.state.totalShawarmas;
+    var prestigeProgress = Math.min((currentTotal / prestigeThreshold) * 100, 100);
+    var newBonus = (1 + (Game.state.lifetimeShawarmas / 1000000) * 0.5).toFixed(2);
+    
+    html += '<div class="menu-section">' +
+      '<div class="menu-section-title">⭐ Престиж</div>';
+    
     if (canPrestige) {
-      var newBonus = (1 + (Game.state.lifetimeShawarmas / 1000000) * 0.5).toFixed(2);
-      html += '<div class="menu-section">' +
-        '<div class="menu-section-title">⭐ Прогресс</div>' +
-        '<div data-action="open-prestige-modal" class="menu-item prestige">' +
+      // Престиж доступен
+      html += '<div data-action="open-prestige-modal" class="menu-item prestige">' +
+        '<div class="menu-item-icon">⭐</div>' +
+        '<div class="menu-item-info">' +
+          '<div class="menu-item-name">Престиж доступен!</div>' +
+          '<div class="menu-item-desc">Получи x' + newBonus + ' множитель</div>' +
+        '</div>' +
+        '<div class="menu-item-badge active">GO!</div>' +
+      '</div>';
+    } else {
+      // Показываем прогресс до престижа
+      html += '<div class="menu-item" style="flex-direction:column;align-items:stretch;gap:8px;">' +
+        '<div style="display:flex;align-items:center;gap:12px;">' +
           '<div class="menu-item-icon">⭐</div>' +
           '<div class="menu-item-info">' +
             '<div class="menu-item-name">Престиж</div>' +
-            '<div class="menu-item-desc">Начни заново с x' + newBonus + ' бонусом</div>' +
+            '<div class="menu-item-desc">Сбрось прогресс за постоянный бонус</div>' +
           '</div>' +
-          '<div class="menu-item-arrow">→</div>' +
+        '</div>' +
+        '<div style="width:100%;">' +
+          '<div class="progress-bar"><div class="progress-fill" style="width:' + prestigeProgress + '%;"></div></div>' +
+          '<div style="display:flex;justify-content:space-between;font-size:0.7rem;margin-top:4px;">' +
+            '<span style="color:var(--text-muted);">' + this.formatNumber(currentTotal) + ' / ' + this.formatNumber(prestigeThreshold) + '</span>' +
+            '<span style="color:var(--primary);">' + prestigeProgress.toFixed(1) + '%</span>' +
+          '</div>' +
         '</div>' +
       '</div>';
     }
+    
+    // Информация о текущем престиже если есть
+    if (Game.state.prestigeLevel > 0) {
+      html += '<div class="menu-item" style="background:rgba(147,51,234,0.1);border-color:rgba(147,51,234,0.3);">' +
+        '<div class="menu-item-icon">👑</div>' +
+        '<div class="menu-item-info">' +
+          '<div class="menu-item-name">Твой престиж: ' + Game.state.prestigeLevel + '</div>' +
+          '<div class="menu-item-desc">Текущий множитель: x' + Game.state.prestigeBonus.toFixed(2) + '</div>' +
+        '</div>' +
+      '</div>';
+    }
+    
+    html += '</div>';
     
     // === НАСТРОЙКИ ===
     var musicEnabled = typeof Music !== 'undefined' ? Music.enabled : false;
@@ -512,7 +548,6 @@ var UI = {
     modal.className = 'modal-overlay';
     modal.id = 'skins-modal';
     
-    // Убираем жёсткое ограничение высоты, позволяем контенту определять размер
     var html = '<div class="modal-content" style="max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;">' +
       '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-shrink:0;">' +
         '<button data-action="back-to-menu" class="back-btn">←</button>' +
@@ -533,10 +568,11 @@ var UI = {
         ? (isCurrent ? 'border:2px solid var(--primary);background:rgba(255,107,53,0.15);' : 'border:1px solid var(--border-color);cursor:pointer;')
         : 'border:1px solid var(--border-color);opacity:0.4;cursor:pointer;';
       
-      html += '<div class="skin-card" data-skin="' + skin.id + '" style="padding:10px;border-radius:12px;text-align:center;background:var(--bg-card);overflow:hidden;' + cardStyle + '">' +
-        '<div style="font-size:2.2rem;">' + (isUnlocked ? skin.emoji : '🔒') + '</div>' +
-        '<div style="font-size:0.7rem;font-weight:700;margin-top:4px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + skin.name + '</div>' +
-        (isCurrent ? '<div style="font-size:0.6rem;color:var(--primary);margin-top:2px;">✓ выбран</div>' : '') +
+      // Фиксированная высота для всех карточек
+      html += '<div class="skin-card" data-skin="' + skin.id + '" style="padding:8px;border-radius:12px;text-align:center;background:var(--bg-card);height:80px;display:flex;flex-direction:column;justify-content:center;align-items:center;' + cardStyle + '">' +
+        '<div style="font-size:2rem;line-height:1;">' + (isUnlocked ? skin.emoji : '🔒') + '</div>' +
+        '<div style="font-size:0.65rem;font-weight:600;margin-top:4px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">' + skin.name + '</div>' +
+        '<div style="font-size:0.55rem;height:12px;line-height:12px;margin-top:2px;color:' + (isCurrent ? 'var(--primary)' : 'transparent') + ';">' + (isCurrent ? '✓' : '·') + '</div>' +
       '</div>';
     }
     

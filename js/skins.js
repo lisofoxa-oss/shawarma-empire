@@ -29,10 +29,9 @@ var Skins = {
     },
     {
       id: 'burrito',
-      name: 'Буррито',
-      emoji: '🌯',
-      customStyle: 'filter: hue-rotate(60deg);',
-      desc: 'Зелёный гигант',
+      name: 'Кебаб',
+      emoji: '🥙',
+      desc: 'Ближневосточный стиль',
       unlockType: 'total',
       unlockTarget: 50000,
       unlockDesc: 'Произведи 50,000 шаурмы'
