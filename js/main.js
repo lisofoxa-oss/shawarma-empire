@@ -60,6 +60,9 @@ function initGame() {
     Game.init();
     
     // Инициализируем дополнительные системы
+    if (typeof Currency !== 'undefined') {
+      Currency.init();
+    }
     if (typeof Challenges !== 'undefined') {
       Challenges.init();
     }

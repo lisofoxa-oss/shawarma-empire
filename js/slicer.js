@@ -590,8 +590,7 @@ var Slicer = {
       localStorage.setItem('slicer_best', this.score);
     }
     
-    // Награда
-    // Награда = очки × 2 (раньше было ×10, слишком много)
+    // Награда шаурмой
     var reward = Math.floor(this.score * 2);
     if (typeof Game !== 'undefined') {
       Game.state.shawarmas += reward;
@@ -599,8 +598,26 @@ var Slicer = {
       Game.state.lifetimeShawarmas += reward;
     }
     
+    // Награда специями за 300+ очков
+    var spiceReward = 0;
+    if (this.score >= 300 && typeof Currency !== 'undefined') {
+      // 1 специя за каждые 100 очков после 200
+      spiceReward = Math.floor((this.score - 200) / 100);
+      // Бонус за комбо
+      if (this.maxCombo >= 10) spiceReward += 2;
+      if (this.maxCombo >= 20) spiceReward += 3;
+      // Бонус за рекорд
+      if (isNewBest && this.score >= 500) spiceReward += 5;
+      
+      Currency.add(spiceReward, 'Слайсер: ' + this.score + ' очков');
+    }
+    
     // Показываем результат
     var self = this;
+    
+    var spiceHtml = spiceReward > 0 
+      ? '<div class="bg-red-400 text-white rounded-xl p-3 mt-2"><div class="text-sm">Бонус</div><div class="text-2xl font-bold">+' + spiceReward + ' 🌶️</div></div>'
+      : (this.score < 300 ? '<div class="text-xs opacity-70 mt-2">Набери 300+ очков для 🌶️</div>' : '');
     
     var resultScreen = document.createElement('div');
     resultScreen.className = 'absolute inset-0 bg-black bg-opacity-80 flex items-center justify-center';
@@ -621,6 +638,7 @@ var Slicer = {
             '<div class="text-sm">Награда</div>' +
             '<div class="text-2xl font-bold">+' + reward + ' 🌯</div>' +
           '</div>' +
+          spiceHtml +
         '</div>' +
         '<div class="flex gap-2">' +
           '<button data-action="slicer-exit" class="flex-1 bg-white bg-opacity-30 py-3 rounded-xl font-bold">Выйти</button>' +

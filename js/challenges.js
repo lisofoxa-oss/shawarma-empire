@@ -128,9 +128,8 @@ var Challenges = {
       var difficulty = Math.min(3, Math.floor(Game.state.prestigeLevel) + (Game.state.totalShawarmas > 100000 ? 1 : 0));
       var target = type.targets[Math.min(difficulty, type.targets.length - 1)];
       
-      // Награда зависит от сложности
-      var baseReward = [100, 500, 2500, 10000][difficulty];
-      var reward = Math.floor(baseReward * (1 + Math.random() * 0.5));
+      // Награда специями (3-10 в зависимости от сложности)
+      var spiceReward = [3, 5, 7, 10][difficulty];
       
       this.daily.push({
         id: type.id + '_' + Date.now() + '_' + i,
@@ -139,7 +138,8 @@ var Challenges = {
         desc: type.desc.replace('{target}', target),
         icon: type.icon,
         target: target,
-        reward: reward,
+        reward: spiceReward,
+        rewardType: 'spices', // Новое поле - тип награды
         claimed: false
       });
     }
@@ -181,23 +181,24 @@ var Challenges = {
       if (ch.id === challengeId && !ch.claimed && this.isCompleted(ch)) {
         ch.claimed = true;
         
-        Game.state.shawarmas += ch.reward;
-        Game.state.totalShawarmas += ch.reward;
-        Game.state.lifetimeShawarmas += ch.reward;
+        // Даём специи вместо шаурмы
+        if (typeof Currency !== 'undefined') {
+          Currency.add(ch.reward, 'Челлендж: ' + ch.name);
+        }
         
         if (typeof Sounds !== 'undefined') Sounds.achievement();
         if (typeof UI !== 'undefined') {
           UI.showAchievementPopup({
             emoji: ch.icon,
             name: 'Челлендж выполнен!',
-            desc: ch.name,
-            reward: ch.reward
+            desc: ch.name + ' (+' + ch.reward + ' 🌶️)',
+            reward: 0
           });
-          UI.createParticles(window.innerWidth / 2, window.innerHeight / 2, 10, '⭐');
+          UI.createParticles(window.innerWidth / 2, window.innerHeight / 2, 10, '🌶️');
         }
         
         this.save();
-        Game.saveGame();
+        if (typeof Game !== 'undefined') Game.saveGame();
         return true;
       }
     }

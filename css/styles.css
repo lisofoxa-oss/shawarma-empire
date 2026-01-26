@@ -160,6 +160,35 @@ body {
   margin-right: 4px;
 }
 
+/* Кнопка специй */
+.spice-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #ff4444 0%, #ff6b35 100%);
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-right: 4px;
+}
+
+.spice-badge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 12px rgba(255, 68, 68, 0.5);
+}
+
+.spice-badge .spice-icon {
+  font-size: 1rem;
+}
+
+.spice-badge .spice-count {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: white;
+}
+
 .header-btn.golden {
   background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
   border: none;

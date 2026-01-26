@@ -69,6 +69,9 @@ var UI = {
     el = document.getElementById('counter-persecond');
     if (el) el.textContent = '+' + this.formatNumber(state.perSecond) + '/с';
     
+    el = document.getElementById('counter-spices');
+    if (el && typeof Currency !== 'undefined') el.textContent = Currency.spices;
+    
     el = document.getElementById('counter-total');
     if (el) el.textContent = this.formatNumber(state.totalShawarmas);
     
@@ -394,7 +397,7 @@ var UI = {
             '<div style="flex:1;">' +
               '<div style="font-weight:700;color:var(--text-primary);">' + ch.name + '</div>' +
               '<div style="font-size:0.8rem;color:var(--text-secondary);">' + ch.desc + '</div>' +
-              '<div style="font-size:0.75rem;color:var(--secondary);margin-top:2px;">🎁 +' + self.formatNumber(ch.reward) + '</div>' +
+              '<div style="font-size:0.75rem;color:var(--primary);margin-top:2px;">🌶️ +' + ch.reward + ' специй</div>' +
             '</div>' +
           '</div>';
         
@@ -537,6 +540,10 @@ var UI = {
               '<span class="text">Империя Шаурмы</span>' +
             '</h1>' +
             '<div class="header-btns">' +
+              '<button data-action="open-shop" class="spice-badge" title="Магазин специй">' +
+                '<span class="spice-icon">🌶️</span>' +
+                '<span id="counter-spices" class="spice-count">' + (typeof Currency !== 'undefined' ? Currency.spices : 0) + '</span>' +
+              '</button>' +
               '<span class="cloud-badge">' + cloud + '</span>' +
               '<button data-action="open-minigames" class="header-btn" title="Мини-игры">🎮</button>' +
               (Game.cloudSaveEnabled ? '<button data-action="show-leaderboard" class="header-btn" title="Лидерборд">🏆</button>' : '') +
@@ -855,6 +862,112 @@ var UI = {
     };
   },
   
+  // Показать магазин специй
+  showSpiceShop: function() {
+    var self = this;
+    if (typeof Currency === 'undefined') return;
+    
+    var modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'shop-modal';
+    
+    var html = '<div class="modal-content" style="max-height:85vh;overflow-y:auto;">' +
+      '<div class="modal-title">🌶️ Магазин специй</div>' +
+      '<div style="text-align:center;margin-bottom:16px;">' +
+        '<div style="display:inline-flex;align-items:center;gap:8px;background:var(--bg-card);padding:8px 16px;border-radius:20px;">' +
+          '<span style="font-size:1.5rem;">🌶️</span>' +
+          '<span style="font-size:1.3rem;font-weight:700;color:var(--primary);">' + Currency.spices + '</span>' +
+        '</div>' +
+      '</div>';
+    
+    // Ускорители
+    html += '<div style="margin-bottom:16px;">' +
+      '<div style="font-size:0.85rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">⚡ Ускорители</div>';
+    
+    for (var i = 0; i < Currency.shop.boosters.length; i++) {
+      var item = Currency.shop.boosters[i];
+      var canBuy = Currency.spices >= item.price;
+      html += self.renderShopItem(item, canBuy);
+    }
+    html += '</div>';
+    
+    // Премиум скины
+    html += '<div style="margin-bottom:16px;">' +
+      '<div style="font-size:0.85rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">🎨 Премиум скины</div>';
+    
+    for (var j = 0; j < Currency.shop.skins.length; j++) {
+      var skin = Currency.shop.skins[j];
+      var owned = Currency.purchasedSkins.indexOf(skin.id) !== -1;
+      var canBuySkin = Currency.spices >= skin.price && !owned;
+      html += self.renderShopItem(skin, canBuySkin, owned);
+    }
+    html += '</div>';
+    
+    // Разное
+    html += '<div style="margin-bottom:16px;">' +
+      '<div style="font-size:0.85rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">🎁 Разное</div>';
+    
+    for (var k = 0; k < Currency.shop.misc.length; k++) {
+      var misc = Currency.shop.misc[k];
+      var canBuyMisc = Currency.spices >= misc.price;
+      html += self.renderShopItem(misc, canBuyMisc);
+    }
+    html += '</div>';
+    
+    // Как получить специи
+    html += '<div style="background:var(--bg-card);border-radius:12px;padding:12px;margin-bottom:12px;">' +
+      '<div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);margin-bottom:8px;">💡 Как получить специи:</div>' +
+      '<div style="font-size:0.7rem;color:var(--text-secondary);line-height:1.6;">' +
+        '• Слайсер: 1🌶️ за каждые 100 очков (от 300+)<br>' +
+        '• Челленджи: 3-10🌶️ за задание<br>' +
+        '• Рефералы: 50🌶️ за друга<br>' +
+        '• Достижения: 5-50🌶️<br>' +
+        '• Престиж: 20🌶️ первый + 5🌶️ каждый<br>' +
+      '</div>' +
+    '</div>';
+    
+    html += '<button class="modal-btn secondary" data-action="close-modal">Закрыть</button></div>';
+    
+    modal.innerHTML = html;
+    document.body.appendChild(modal);
+    
+    modal.onclick = function(e) {
+      if (e.target === modal || e.target.dataset.action === 'close-modal') {
+        modal.remove();
+      }
+      var buyBtn = e.target.closest('[data-buy]');
+      if (buyBtn && buyBtn.dataset.buy) {
+        if (Currency.purchase(buyBtn.dataset.buy)) {
+          modal.remove();
+          self.showSpiceShop(); // Перезагрузить
+        }
+      }
+    };
+  },
+  
+  // Рендер товара в магазине
+  renderShopItem: function(item, canBuy, owned) {
+    var style = owned 
+      ? 'opacity:0.5;background:rgba(34,197,94,0.1);border:1px solid var(--success);'
+      : (canBuy 
+        ? 'background:var(--bg-card);border:1px solid var(--border-color);cursor:pointer;' 
+        : 'opacity:0.5;background:var(--bg-card);border:1px solid var(--border-color);');
+    
+    return '<div data-buy="' + (owned ? '' : item.id) + '" style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;margin-bottom:6px;' + style + '">' +
+      '<div style="font-size:1.8rem;">' + item.emoji + '</div>' +
+      '<div style="flex:1;">' +
+        '<div style="font-weight:600;color:var(--text-primary);font-size:0.85rem;">' + item.name + '</div>' +
+        '<div style="font-size:0.7rem;color:var(--text-secondary);">' + item.desc + '</div>' +
+      '</div>' +
+      '<div style="text-align:right;">' +
+        (owned 
+          ? '<div style="color:var(--success);font-size:0.75rem;font-weight:600;">✓ Есть</div>'
+          : '<div style="font-weight:700;color:var(--primary);font-size:0.9rem;">' + item.price + ' 🌶️</div>'
+        ) +
+      '</div>' +
+    '</div>';
+  },
+  
   // Показать меню рефералов
   showReferralMenu: function() {
     var self = this;
@@ -918,18 +1031,18 @@ var UI = {
         
         // Награды
         '<div style="background:var(--bg-card);border-radius:12px;padding:12px;margin-bottom:12px;">' +
-          '<div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);margin-bottom:8px;">🎁 Награды:</div>' +
+          '<div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);margin-bottom:8px;">🌶️ Награды специями:</div>' +
           '<div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:4px;">' +
-            '• Ты получаешь: <span style="color:var(--secondary);">+' + self.formatNumber(Referral.rewards.forInviter) + '</span> за каждого друга' +
+            '• Ты получаешь: <span style="color:var(--primary);">+' + Referral.rewards.forInviter + ' 🌶️</span> за каждого друга' +
           '</div>' +
           '<div style="font-size:0.75rem;color:var(--text-secondary);">' +
-            '• Друг получает: <span style="color:var(--secondary);">+' + self.formatNumber(Referral.rewards.forInvited) + '</span> при старте' +
+            '• Друг получает: <span style="color:var(--primary);">+' + Referral.rewards.forInvited + ' 🌶️</span> при старте' +
           '</div>' +
         '</div>' +
         
         // Вехи
         '<div style="background:var(--bg-card);border-radius:12px;padding:12px;margin-bottom:12px;">' +
-          '<div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);margin-bottom:8px;">🏆 Вехи:</div>' +
+          '<div style="font-size:0.8rem;font-weight:600;color:var(--text-primary);margin-bottom:8px;">🏆 Вехи (специи):</div>' +
           '<div style="display:flex;flex-direction:column;gap:4px;">' + milestonesHtml + '</div>' +
         '</div>' +
         

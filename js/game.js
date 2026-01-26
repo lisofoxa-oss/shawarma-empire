@@ -214,6 +214,11 @@ var Game = {
             UI.showSettings();
           }
           break;
+        case 'open-shop':
+          if (typeof UI !== 'undefined') {
+            UI.showSpiceShop();
+          }
+          break;
         case 'claim-order':
           if (typeof Orders !== 'undefined' && id) {
             Orders.claimReward(target.dataset.id);

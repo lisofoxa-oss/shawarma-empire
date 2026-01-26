@@ -17,17 +17,17 @@ var Referral = {
   // Получена ли награда за приглашение
   rewardClaimed: false,
   
-  // Награды
+  // Награды (в специях 🌶️)
   rewards: {
-    forInviter: 5000,      // Награда пригласившему
-    forInvited: 2500,      // Награда приглашённому
-    perReferral: 1000,     // Бонус за каждого реферала
+    forInviter: 50,        // Специй пригласившему
+    forInvited: 25,        // Специй приглашённому
+    perReferral: 10,       // Бонус за каждого реферала
     milestones: [          // Вехи
-      { count: 5, reward: 10000, emoji: '🥉' },
-      { count: 10, reward: 25000, emoji: '🥈' },
-      { count: 25, reward: 100000, emoji: '🥇' },
-      { count: 50, reward: 500000, emoji: '💎' },
-      { count: 100, reward: 2000000, emoji: '👑' }
+      { count: 5, reward: 25, emoji: '🥉' },
+      { count: 10, reward: 50, emoji: '🥈' },
+      { count: 25, reward: 150, emoji: '🥇' },
+      { count: 50, reward: 400, emoji: '💎' },
+      { count: 100, reward: 1000, emoji: '👑' }
     ]
   },
   
@@ -181,18 +181,17 @@ var Referral = {
   giveReferralReward: function(count) {
     var reward = this.rewards.perReferral * count;
     
-    if (typeof Game !== 'undefined') {
-      Game.state.shawarmas += reward;
-      Game.state.totalShawarmas += reward;
-      Game.state.lifetimeShawarmas += reward;
+    // Даём специи вместо шаурмы
+    if (typeof Currency !== 'undefined') {
+      Currency.add(reward, 'Новые рефералы: ' + count);
     }
     
     if (typeof UI !== 'undefined') {
       UI.showAchievementPopup({
         emoji: '👥',
         name: count + ' новых друзей!',
-        desc: 'Спасибо за приглашения',
-        reward: reward
+        desc: '+' + reward + ' 🌶️ специй',
+        reward: 0
       });
     }
     
@@ -296,19 +295,21 @@ var Referral = {
     
     this.rewardClaimed = true;
     
+    // Даём специи
+    if (typeof Currency !== 'undefined') {
+      Currency.add(this.rewards.forInvited, 'Бонус за приглашение');
+    }
+    
     if (typeof Game !== 'undefined') {
-      Game.state.shawarmas += this.rewards.forInvited;
-      Game.state.totalShawarmas += this.rewards.forInvited;
-      Game.state.lifetimeShawarmas += this.rewards.forInvited;
       Game.saveGame();
     }
     
     if (typeof UI !== 'undefined') {
       UI.showAchievementPopup({
         emoji: '🎁',
-        name: 'Бонус за приглашение!',
-        desc: 'Тебя пригласил друг',
-        reward: this.rewards.forInvited
+        name: 'Бонус новичка!',
+        desc: '+' + this.rewards.forInvited + ' 🌶️ специй',
+        reward: 0
       });
     }
     
@@ -325,18 +326,17 @@ var Referral = {
         
         this.claimedMilestones.push(milestone.count);
         
-        if (typeof Game !== 'undefined') {
-          Game.state.shawarmas += milestone.reward;
-          Game.state.totalShawarmas += milestone.reward;
-          Game.state.lifetimeShawarmas += milestone.reward;
+        // Даём специи
+        if (typeof Currency !== 'undefined') {
+          Currency.add(milestone.reward, 'Веха: ' + milestone.count + ' друзей');
         }
         
         if (typeof UI !== 'undefined') {
           UI.showAchievementPopup({
             emoji: milestone.emoji,
             name: 'Веха рефералов!',
-            desc: milestone.count + ' друзей приглашено',
-            reward: milestone.reward
+            desc: milestone.count + ' друзей = +' + milestone.reward + ' 🌶️',
+            reward: 0
           });
         }
       }
