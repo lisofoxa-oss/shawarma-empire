@@ -10,6 +10,12 @@ var Slicer = {
   timeLeft: 0,
   duration: 30000, // 30 секунд
   
+  // Лимиты игр
+  gamesPlayed: 0,
+  maxGames: 3,
+  lastResetTime: 0,
+  resetInterval: 3 * 60 * 60 * 1000, // 3 часа
+  
   // Ингредиенты
   ingredients: [
     { emoji: '🥒', name: 'Огурец', points: 10, speed: 1 },
@@ -41,12 +47,57 @@ var Slicer = {
   
   // Инициализация
   init: function() {
+    this.loadLimits();
     console.log('✅ Slicer инициализирован');
+  },
+  
+  // Загрузить лимиты из localStorage
+  loadLimits: function() {
+    try {
+      var saved = localStorage.getItem('slicer_limits');
+      if (saved) {
+        var data = JSON.parse(saved);
+        this.gamesPlayed = data.gamesPlayed || 0;
+        this.lastResetTime = data.lastResetTime || 0;
+      }
+      this.checkReset();
+    } catch (e) {}
+  },
+  
+  // Сохранить лимиты
+  saveLimits: function() {
+    localStorage.setItem('slicer_limits', JSON.stringify({
+      gamesPlayed: this.gamesPlayed,
+      lastResetTime: this.lastResetTime
+    }));
+  },
+  
+  // Проверить сброс лимита
+  checkReset: function() {
+    var now = Date.now();
+    if (now - this.lastResetTime >= this.resetInterval) {
+      this.gamesPlayed = 0;
+      this.lastResetTime = now;
+      this.saveLimits();
+    }
+  },
+  
+  // Время до сброса
+  getTimeToReset: function() {
+    var elapsed = Date.now() - this.lastResetTime;
+    return Math.max(0, this.resetInterval - elapsed);
+  },
+  
+  // Можно ли играть
+  canPlay: function() {
+    this.checkReset();
+    return this.gamesPlayed < this.maxGames;
   },
   
   // Открыть меню слайсера
   openMenu: function() {
     var self = this;
+    this.checkReset();
     
     // Создаём модальное окно
     var modal = document.createElement('div');
@@ -54,23 +105,39 @@ var Slicer = {
     modal.className = 'fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50';
     
     var bestScore = localStorage.getItem('slicer_best') || 0;
+    var gamesLeft = this.maxGames - this.gamesPlayed;
+    var canPlay = gamesLeft > 0;
+    
+    var timeToReset = this.getTimeToReset();
+    var hours = Math.floor(timeToReset / 3600000);
+    var minutes = Math.floor((timeToReset % 3600000) / 60000);
+    var timerText = hours > 0 ? hours + 'ч ' + minutes + 'м' : minutes + 'м';
     
     modal.innerHTML = 
       '<div class="bg-gradient-to-br from-green-400 to-emerald-600 rounded-3xl p-6 max-w-sm mx-4 text-center text-white shadow-2xl">' +
         '<div class="text-5xl mb-4">🔪</div>' +
         '<h2 class="text-2xl font-bold mb-2">Слайсер</h2>' +
         '<p class="text-sm opacity-90 mb-4">Нарезай ингредиенты свайпом!<br>Избегай бомб 💣</p>' +
-        '<div class="bg-white bg-opacity-20 rounded-xl p-3 mb-4">' +
-          '<div class="text-sm">Лучший результат</div>' +
+        '<div class="bg-white bg-opacity-20 rounded-xl p-3 mb-3">' +
+          '<div class="text-sm">🏆 Лучший результат</div>' +
           '<div class="text-3xl font-bold">' + bestScore + '</div>' +
         '</div>' +
-        '<div class="bg-white bg-opacity-20 rounded-xl p-3 mb-4">' +
-          '<div class="text-sm">Награда</div>' +
-          '<div class="text-lg">Очки × 10 = 🌯 шаурмы</div>' +
+        '<div class="bg-white bg-opacity-20 rounded-xl p-3 mb-3">' +
+          '<div class="text-sm">🎮 Игр осталось</div>' +
+          '<div class="text-2xl font-bold">' + gamesLeft + ' / ' + this.maxGames + '</div>' +
+          (gamesLeft < this.maxGames ? '<div class="text-xs opacity-80 mt-1">Обновление через ' + timerText + '</div>' : '') +
+        '</div>' +
+        '<div class="bg-yellow-400 bg-opacity-30 rounded-xl p-3 mb-4">' +
+          '<div class="text-sm">🎁 Награды</div>' +
+          '<div class="text-xs opacity-90 mt-1">🌯 Очки × 2 шаурмы</div>' +
+          '<div class="text-xs opacity-90">🌶️ 2-15 перчиков (от 300 очков)</div>' +
         '</div>' +
         '<div class="flex gap-2">' +
           '<button data-action="close-slicer-menu" class="flex-1 bg-white bg-opacity-30 py-3 rounded-xl font-bold hover:bg-opacity-40">Назад</button>' +
-          '<button data-action="start-slicer" class="flex-1 bg-white text-green-600 py-3 rounded-xl font-bold hover:bg-gray-100">Играть!</button>' +
+          '<button data-action="start-slicer" class="flex-1 py-3 rounded-xl font-bold ' + 
+            (canPlay ? 'bg-white text-green-600 hover:bg-gray-100' : 'bg-gray-400 text-gray-600 cursor-not-allowed') + '">' +
+            (canPlay ? 'Играть!' : 'Подожди') +
+          '</button>' +
         '</div>' +
       '</div>';
     
@@ -82,6 +149,17 @@ var Slicer = {
     };
     
     modal.querySelector('[data-action="start-slicer"]').onclick = function() {
+      if (!self.canPlay()) {
+        if (typeof UI !== 'undefined') {
+          UI.showAchievementPopup({
+            emoji: '⏰',
+            name: 'Игры закончились',
+            desc: 'Подожди ' + timerText,
+            reward: 0
+          });
+        }
+        return;
+      }
       modal.remove();
       self.start();
     };
@@ -90,6 +168,10 @@ var Slicer = {
   // Начать игру
   start: function() {
     var self = this;
+    
+    // Увеличиваем счётчик игр
+    this.gamesPlayed++;
+    this.saveLimits();
     
     this.active = true;
     this.score = 0;
@@ -598,16 +680,20 @@ var Slicer = {
       Game.state.lifetimeShawarmas += reward;
     }
     
-    // Награда специями за 300+ очков
+    // Награда специями за 300+ очков (улучшенная формула)
     var spiceReward = 0;
     if (this.score >= 300 && typeof Currency !== 'undefined') {
-      // 1 специя за каждые 100 очков после 200
-      spiceReward = Math.floor((this.score - 200) / 100);
+      // Базовые специи: 2 за 300, +1 за каждые 50 очков
+      spiceReward = 2 + Math.floor((this.score - 300) / 50);
       // Бонус за комбо
+      if (this.maxCombo >= 5) spiceReward += 1;
       if (this.maxCombo >= 10) spiceReward += 2;
+      if (this.maxCombo >= 15) spiceReward += 2;
       if (this.maxCombo >= 20) spiceReward += 3;
       // Бонус за рекорд
-      if (isNewBest && this.score >= 500) spiceReward += 5;
+      if (isNewBest) spiceReward += 3;
+      // Максимум 15 за игру
+      spiceReward = Math.min(spiceReward, 15);
       
       Currency.add(spiceReward, 'Слайсер: ' + this.score + ' очков');
     }
@@ -658,7 +744,29 @@ var Slicer = {
       self.cleanup();
     };
     
-    resultScreen.querySelector('[data-action="slicer-retry"]').onclick = function() {
+    var retryBtn = resultScreen.querySelector('[data-action="slicer-retry"]');
+    // Проверяем остались ли игры
+    var gamesLeft = self.maxGames - self.gamesPlayed;
+    if (gamesLeft <= 0) {
+      retryBtn.textContent = 'Нет игр';
+      retryBtn.className = 'flex-1 bg-gray-400 text-gray-600 py-3 rounded-xl font-bold cursor-not-allowed';
+    }
+    
+    retryBtn.onclick = function() {
+      if (!self.canPlay()) {
+        var timeToReset = self.getTimeToReset();
+        var hours = Math.floor(timeToReset / 3600000);
+        var minutes = Math.floor((timeToReset % 3600000) / 60000);
+        if (typeof UI !== 'undefined') {
+          UI.showAchievementPopup({
+            emoji: '⏰',
+            name: 'Игры закончились',
+            desc: 'Подожди ' + (hours > 0 ? hours + 'ч ' : '') + minutes + 'м',
+            reward: 0
+          });
+        }
+        return;
+      }
       self.cleanup();
       self.start();
     };

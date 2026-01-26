@@ -537,18 +537,17 @@ var UI = {
           '<div class="header-row">' +
             '<h1 class="header-title">' +
               '<span class="emoji">🌯</span>' +
-              '<span class="text">Империя Шаурмы</span>' +
+              '<span class="text">Шаурма' + (cloud === '☁️' ? '☁️' : '') + '</span>' +
             '</h1>' +
             '<div class="header-btns">' +
-              '<button data-action="open-shop" class="spice-badge" title="Магазин специй">' +
+              '<button data-action="open-shop" class="spice-badge" title="Магазин">' +
                 '<span class="spice-icon">🌶️</span>' +
                 '<span id="counter-spices" class="spice-count">' + (typeof Currency !== 'undefined' ? Currency.spices : 0) + '</span>' +
               '</button>' +
-              '<span class="cloud-badge">' + cloud + '</span>' +
-              '<button data-action="open-minigames" class="header-btn" title="Мини-игры">🎮</button>' +
-              (Game.cloudSaveEnabled ? '<button data-action="show-leaderboard" class="header-btn" title="Лидерборд">🏆</button>' : '') +
-              (canPrestige ? '<button data-action="open-prestige" class="header-btn golden" title="Престиж">⭐</button>' : '') +
-              '<button data-action="show-settings" class="header-btn" title="Настройки">⚙️</button>' +
+              '<button data-action="open-minigames" class="header-btn-sm" title="Игры">🎮</button>' +
+              (Game.cloudSaveEnabled ? '<button data-action="show-leaderboard" class="header-btn-sm" title="Топ">🏆</button>' : '') +
+              (canPrestige ? '<button data-action="open-prestige" class="header-btn-sm golden" title="Престиж">⭐</button>' : '') +
+              '<button data-action="show-settings" class="header-btn-sm" title="Меню">⚙️</button>' +
             '</div>' +
           '</div>' +
           '<div class="stats-grid">' +
@@ -1008,8 +1007,11 @@ var UI = {
     }
     
     modal.innerHTML = 
-      '<div class="modal-content">' +
-        '<div class="modal-title">👥 Пригласи друзей</div>' +
+      '<div class="modal-content" style="max-height:85vh;overflow-y:auto;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+          '<div class="modal-title" style="margin-bottom:0;">👥 Пригласи друзей</div>' +
+          '<button data-action="close-modal" style="background:var(--bg-card);border:none;width:32px;height:32px;border-radius:50%;font-size:1.2rem;cursor:pointer;">✕</button>' +
+        '</div>' +
         
         // Статистика
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">' +
