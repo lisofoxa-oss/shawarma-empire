@@ -129,10 +129,37 @@ var UI = {
     }
   },
   
-  // Показать попап достижения
+  // ФУНДАМЕНТ: Очередь уведомлений (макс 3 одновременно)
+  notificationQueue: [],
+  activeNotifications: 0,
+  maxNotifications: 3,
+  
+  // Показать попап достижения (с очередью)
   showAchievementPopup: function(ach) {
+    var self = this;
+    
+    // Добавляем в очередь
+    this.notificationQueue.push(ach);
+    
+    // Пробуем показать
+    this.processNotificationQueue();
+  },
+  
+  // Обработка очереди уведомлений
+  processNotificationQueue: function() {
+    var self = this;
+    
+    // Если достигнут лимит или очередь пуста - выходим
+    if (this.activeNotifications >= this.maxNotifications || this.notificationQueue.length === 0) {
+      return;
+    }
+    
     var container = document.getElementById('achievements-container');
     if (!container) return;
+    
+    // Берём следующее уведомление
+    var ach = this.notificationQueue.shift();
+    this.activeNotifications++;
     
     var div = document.createElement('div');
     div.className = 'achievement-popup';
@@ -143,22 +170,35 @@ var UI = {
     
     container.appendChild(div);
     
+    // Через 2.5 секунды убираем и показываем следующее
     setTimeout(function() {
       div.style.opacity = '0';
       div.style.transition = 'opacity 0.3s';
-      setTimeout(function() { div.remove(); }, 300);
-    }, 3000);
+      setTimeout(function() {
+        div.remove();
+        self.activeNotifications--;
+        // Показываем следующее из очереди
+        self.processNotificationQueue();
+      }, 300);
+    }, 2500);
+    
+    // Рекурсивно пробуем показать ещё (если есть место)
+    if (this.activeNotifications < this.maxNotifications && this.notificationQueue.length > 0) {
+      setTimeout(function() {
+        self.processNotificationQueue();
+      }, 200); // Небольшая задержка между появлениями
+    }
   },
   
   // Показать модалку мини-игр
-  // Показать меню активностей (мини-игры + лидерборд + челленджи)
+  // ФУНДАМЕНТ: Единое меню со ВСЕМ контентом
   showActivitiesMenu: function() {
     var self = this;
     var modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.id = 'activities-modal';
     
-    // Статистика слайсера
+    // Данные для отображения
     var slicerBest = localStorage.getItem('slicer_best') || 0;
     var slicerGames = 3;
     if (typeof Slicer !== 'undefined') {
@@ -166,30 +206,28 @@ var UI = {
       slicerGames = Slicer.maxGames - Slicer.gamesPlayed;
     }
     
-    var html = '<div class="modal-content" style="max-height:85vh;overflow-y:auto;">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-        '<div class="modal-title" style="margin-bottom:0;">📋 Активности</div>' +
-        '<button data-action="close-modal" style="background:var(--bg-card);border:none;width:32px;height:32px;border-radius:50%;font-size:1.2rem;cursor:pointer;">✕</button>' +
+    var canPrestige = Game.state.totalShawarmas >= 10000000;
+    
+    var html = '<div class="modal-content" style="max-height:90vh;overflow-y:auto;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+        '<div class="modal-title" style="margin-bottom:0;">☰ Меню</div>' +
+        '<button data-action="close-modal" style="background:var(--bg-card);border:none;width:36px;height:36px;border-radius:50%;font-size:1.3rem;cursor:pointer;">✕</button>' +
       '</div>';
     
-    // Мини-игры
-    html += '<div style="margin-bottom:16px;">' +
-      '<div style="font-size:0.85rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">🎮 Мини-игры</div>' +
-      '<div data-action="play-slicer" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-card);border-radius:12px;cursor:pointer;border:1px solid var(--border-color);">' +
-        '<div style="font-size:2.5rem;">🔪</div>' +
-        '<div style="flex:1;">' +
-          '<div style="font-weight:700;color:var(--text-primary);">Слайсер</div>' +
-          '<div style="font-size:0.75rem;color:var(--text-secondary);">Нарезай ингредиенты!</div>' +
-          '<div style="font-size:0.7rem;color:var(--accent);margin-top:2px;">🏆 Рекорд: ' + slicerBest + '</div>' +
+    // === МИНИ-ИГРЫ ===
+    html += '<div class="menu-section">' +
+      '<div class="menu-section-title">🎮 Мини-игры</div>' +
+      '<div data-action="play-slicer" class="menu-item">' +
+        '<div class="menu-item-icon">🔪</div>' +
+        '<div class="menu-item-info">' +
+          '<div class="menu-item-name">Слайсер</div>' +
+          '<div class="menu-item-desc">Нарезай ингредиенты · Рекорд: ' + slicerBest + '</div>' +
         '</div>' +
-        '<div style="text-align:right;">' +
-          '<div style="font-size:1.2rem;font-weight:700;color:' + (slicerGames > 0 ? 'var(--success)' : 'var(--text-muted)') + ';">' + slicerGames + '/3</div>' +
-          '<div style="font-size:0.65rem;color:var(--text-muted);">игр</div>' +
-        '</div>' +
+        '<div class="menu-item-badge ' + (slicerGames > 0 ? 'active' : '') + '">' + slicerGames + '/3</div>' +
       '</div>' +
     '</div>';
     
-    // Челленджи
+    // === ЕЖЕДНЕВНОЕ ===
     if (typeof Challenges !== 'undefined') {
       Challenges.checkNewDay();
       var completedChallenges = 0;
@@ -197,78 +235,158 @@ var UI = {
         if (Challenges.daily[i].claimed) completedChallenges++;
       }
       
-      html += '<div style="margin-bottom:16px;">' +
-        '<div style="font-size:0.85rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">📋 Ежедневные задания</div>' +
-        '<div data-action="show-challenges" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-card);border-radius:12px;cursor:pointer;border:1px solid var(--border-color);">' +
-          '<div style="font-size:2.5rem;">🎯</div>' +
-          '<div style="flex:1;">' +
-            '<div style="font-weight:700;color:var(--text-primary);">Челленджи</div>' +
-            '<div style="font-size:0.75rem;color:var(--text-secondary);">Выполняй задания за 🌶️</div>' +
+      html += '<div class="menu-section">' +
+        '<div class="menu-section-title">📅 Ежедневное</div>' +
+        '<div data-action="show-challenges" class="menu-item">' +
+          '<div class="menu-item-icon">🎯</div>' +
+          '<div class="menu-item-info">' +
+            '<div class="menu-item-name">Челленджи</div>' +
+            '<div class="menu-item-desc">Задания за 🌶️ перчики</div>' +
           '</div>' +
-          '<div style="text-align:right;">' +
-            '<div style="font-size:1.2rem;font-weight:700;color:' + (completedChallenges < 3 ? 'var(--primary)' : 'var(--success)') + ';">' + completedChallenges + '/3</div>' +
-            '<div style="font-size:0.65rem;color:var(--text-muted);">готово</div>' +
-          '</div>' +
+          '<div class="menu-item-badge ' + (completedChallenges < 3 ? 'active' : 'done') + '">' + completedChallenges + '/3</div>' +
         '</div>' +
       '</div>';
     }
     
-    // Лидерборд
-    if (Game.cloudSaveEnabled) {
-      html += '<div style="margin-bottom:16px;">' +
-        '<div style="font-size:0.85rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">🏆 Соревнование</div>' +
-        '<div data-action="show-leaderboard-modal" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-card);border-radius:12px;cursor:pointer;border:1px solid var(--border-color);">' +
-          '<div style="font-size:2.5rem;">🏆</div>' +
-          '<div style="flex:1;">' +
-            '<div style="font-weight:700;color:var(--text-primary);">Топ игроков</div>' +
-            '<div style="font-size:0.75rem;color:var(--text-secondary);">Рейтинг лучших магнатов</div>' +
-          '</div>' +
-          '<div style="font-size:1.5rem;">→</div>' +
+    // === КОЛЛЕКЦИЯ ===
+    var skinsCount = typeof Skins !== 'undefined' ? Skins.unlocked.length + '/' + Skins.list.length : '0';
+    html += '<div class="menu-section">' +
+      '<div class="menu-section-title">🎨 Коллекция</div>' +
+      '<div data-action="show-skins-modal" class="menu-item">' +
+        '<div class="menu-item-icon">🎨</div>' +
+        '<div class="menu-item-info">' +
+          '<div class="menu-item-name">Скины шаурмы</div>' +
+          '<div class="menu-item-desc">Кастомизируй внешний вид</div>' +
         '</div>' +
-      '</div>';
-    }
-    
-    // Коллекция скинов
-    html += '<div style="margin-bottom:16px;">' +
-      '<div style="font-size:0.85rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;">🎨 Коллекция</div>' +
-      '<div data-action="show-skins-modal" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg-card);border-radius:12px;cursor:pointer;border:1px solid var(--border-color);">' +
-        '<div style="font-size:2.5rem;">🎨</div>' +
-        '<div style="flex:1;">' +
-          '<div style="font-weight:700;color:var(--text-primary);">Скины</div>' +
-          '<div style="font-size:0.75rem;color:var(--text-secondary);">Кастомизируй шаурму</div>' +
-        '</div>' +
-        '<div style="font-size:1.5rem;">→</div>' +
+        '<div class="menu-item-badge">' + skinsCount + '</div>' +
       '</div>' +
     '</div>';
     
-    html += '<button class="modal-btn secondary" data-action="close-modal">Закрыть</button></div>';
+    // === СОЦИАЛЬНОЕ ===
+    html += '<div class="menu-section">' +
+      '<div class="menu-section-title">👥 Социальное</div>';
+    
+    if (Game.cloudSaveEnabled) {
+      html += '<div data-action="show-leaderboard-modal" class="menu-item">' +
+        '<div class="menu-item-icon">🏆</div>' +
+        '<div class="menu-item-info">' +
+          '<div class="menu-item-name">Топ игроков</div>' +
+          '<div class="menu-item-desc">Рейтинг лучших магнатов</div>' +
+        '</div>' +
+        '<div class="menu-item-arrow">→</div>' +
+      '</div>';
+    }
+    
+    html += '<div data-action="show-referral" class="menu-item">' +
+      '<div class="menu-item-icon">👥</div>' +
+      '<div class="menu-item-info">' +
+        '<div class="menu-item-name">Пригласить друзей</div>' +
+        '<div class="menu-item-desc">Получай 🌶️ за рефералов</div>' +
+      '</div>' +
+      '<div class="menu-item-arrow">→</div>' +
+    '</div></div>';
+    
+    // === ПРОГРЕСС ===
+    if (canPrestige) {
+      var newBonus = (1 + (Game.state.lifetimeShawarmas / 1000000) * 0.5).toFixed(2);
+      html += '<div class="menu-section">' +
+        '<div class="menu-section-title">⭐ Прогресс</div>' +
+        '<div data-action="open-prestige-modal" class="menu-item prestige">' +
+          '<div class="menu-item-icon">⭐</div>' +
+          '<div class="menu-item-info">' +
+            '<div class="menu-item-name">Престиж</div>' +
+            '<div class="menu-item-desc">Начни заново с x' + newBonus + ' бонусом</div>' +
+          '</div>' +
+          '<div class="menu-item-arrow">→</div>' +
+        '</div>' +
+      '</div>';
+    }
+    
+    // === НАСТРОЙКИ ===
+    var musicEnabled = typeof Music !== 'undefined' ? Music.enabled : false;
+    html += '<div class="menu-section">' +
+      '<div class="menu-section-title">⚙️ Настройки</div>' +
+      '<div class="menu-item" style="flex-wrap:wrap;">' +
+        '<div class="menu-item-icon">🎵</div>' +
+        '<div class="menu-item-info">' +
+          '<div class="menu-item-name">Музыка</div>' +
+        '</div>' +
+        '<button data-action="toggle-music" class="toggle-btn ' + (musicEnabled ? 'active' : '') + '">' +
+          '<span class="toggle-slider"></span>' +
+        '</button>' +
+      '</div>' +
+      '<div class="menu-item">' +
+        '<div class="menu-item-icon">🎨</div>' +
+        '<div class="menu-item-info">' +
+          '<div class="menu-item-name">Тема</div>' +
+        '</div>' +
+        '<div class="theme-picker-mini">' +
+          '<button class="theme-btn-mini dark ' + (this.currentTheme === 'dark' ? 'active' : '') + '" data-theme="dark"></button>' +
+          '<button class="theme-btn-mini light ' + (this.currentTheme === 'light' ? 'active' : '') + '" data-theme="light"></button>' +
+          '<button class="theme-btn-mini neon ' + (this.currentTheme === 'neon' ? 'active' : '') + '" data-theme="neon"></button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+    
+    html += '<button class="modal-btn secondary" data-action="close-modal" style="margin-top:12px;">Закрыть</button></div>';
     
     modal.innerHTML = html;
     document.body.appendChild(modal);
     
+    // Обработчики
     modal.onclick = function(e) {
       if (e.target === modal || e.target.dataset.action === 'close-modal') {
         modal.remove();
       }
       
       var target = e.target.closest('[data-action]');
-      if (!target) return;
+      if (!target) {
+        // Проверяем тему
+        var themeBtn = e.target.closest('[data-theme]');
+        if (themeBtn) {
+          self.setTheme(themeBtn.dataset.theme);
+          // Обновляем активную кнопку
+          modal.querySelectorAll('.theme-btn-mini').forEach(function(b) { b.classList.remove('active'); });
+          themeBtn.classList.add('active');
+        }
+        return;
+      }
       
-      if (target.dataset.action === 'play-slicer') {
+      var action = target.dataset.action;
+      
+      if (action === 'play-slicer') {
         modal.remove();
         if (typeof Slicer !== 'undefined') Slicer.openMenu();
       }
-      if (target.dataset.action === 'show-challenges') {
+      if (action === 'show-challenges') {
         modal.remove();
         self.showChallengesMenu();
       }
-      if (target.dataset.action === 'show-leaderboard-modal') {
+      if (action === 'show-leaderboard-modal') {
         modal.remove();
         self.showLeaderboard();
       }
-      if (target.dataset.action === 'show-skins-modal') {
+      if (action === 'show-skins-modal') {
         modal.remove();
         self.showSkinsMenu();
+      }
+      if (action === 'show-referral') {
+        modal.remove();
+        self.showReferralMenu();
+      }
+      if (action === 'open-prestige-modal') {
+        modal.remove();
+        Game.openPrestigeModal();
+      }
+      if (action === 'toggle-music') {
+        if (typeof Music !== 'undefined') {
+          var isOn = Music.toggle();
+          var btn = modal.querySelector('[data-action="toggle-music"]');
+          if (btn) {
+            if (isOn) btn.classList.add('active');
+            else btn.classList.remove('active');
+          }
+        }
       }
     };
   },
@@ -606,7 +724,7 @@ var UI = {
       '<div class="game-bg">' + particles + '</div>' +
       '<div style="position:relative;z-index:10;min-height:100vh;padding-bottom:80px;">' +
         
-        // Шапка
+        // Шапка (ФУНДАМЕНТ: только 2 кнопки справа)
         '<header class="game-header">' +
           '<div class="header-row">' +
             '<h1 class="header-title">' +
@@ -615,13 +733,11 @@ var UI = {
               (cloud === '☁️' ? '<span class="cloud-icon">☁️</span>' : '') +
             '</h1>' +
             '<div class="header-btns">' +
-              '<button data-action="open-shop" class="spice-badge" title="Магазин">' +
+              '<button data-action="open-shop" class="spice-badge" title="Магазин перчиков">' +
                 '<span class="spice-icon">🌶️</span>' +
                 '<span id="counter-spices" class="spice-count">' + (typeof Currency !== 'undefined' ? Currency.spices : 0) + '</span>' +
               '</button>' +
-              '<button data-action="open-activities" class="header-btn-sm" title="Активности">📋</button>' +
-              (canPrestige ? '<button data-action="open-prestige" class="header-btn-sm golden" title="Престиж">⭐</button>' : '') +
-              '<button data-action="show-settings" class="header-btn-sm" title="Настройки">⚙️</button>' +
+              '<button data-action="open-activities" class="menu-btn" title="Меню">☰</button>' +
             '</div>' +
           '</div>' +
           '<div class="stats-grid">' +

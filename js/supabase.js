@@ -55,14 +55,42 @@ var DB = {
         
         if (response.data) {
           console.log('📂 Данные загружены из облака');
+          
+          // ФУНДАМЕНТ: Применяем расширенные данные
+          var cloudData = response.data;
+          
+          // Загружаем перчики
+          if (typeof Currency !== 'undefined' && cloudData.spices !== undefined) {
+            Currency.spices = cloudData.spices || 0;
+            Currency.totalEarned = cloudData.spices_total || Currency.spices;
+            Currency.save();
+          }
+          
+          // Загружаем скин
+          if (typeof Skins !== 'undefined' && cloudData.current_skin) {
+            Skins.current = cloudData.current_skin;
+            Skins.save();
+          }
+          
+          // Загружаем тему
+          if (typeof UI !== 'undefined' && cloudData.theme) {
+            UI.setTheme(cloudData.theme);
+          }
+          
+          // Загружаем настройки музыки
+          if (typeof Music !== 'undefined' && cloudData.music_enabled !== undefined) {
+            Music.enabled = cloudData.music_enabled;
+            Music.save();
+          }
+          
           // Загружаем здания и улучшения
           self.loadUserBuildings(function(buildings) {
             self.loadUserUpgrades(function(upgrades) {
               self.loadUserAchievements(function(achievements) {
-                response.data.buildings = buildings;
-                response.data.upgrades = upgrades;
-                response.data.achievements = achievements;
-                callback(response.data);
+                cloudData.buildings = buildings;
+                cloudData.upgrades = upgrades;
+                cloudData.achievements = achievements;
+                callback(cloudData);
               });
             });
           });
@@ -158,9 +186,33 @@ var DB = {
       last_play_time: new Date().toISOString()
     };
     
-    // Добавляем реферальный код если есть
+    // ФУНДАМЕНТ: Добавляем ВСЕ дополнительные данные
+    
+    // Перчики (премиум валюта)
+    if (typeof Currency !== 'undefined') {
+      userData.spices = Currency.spices || 0;
+      userData.spices_total = Currency.totalEarned || 0;
+    }
+    
+    // Реферальный код
     if (typeof Referral !== 'undefined' && Referral.myCode) {
       userData.referral_code = Referral.myCode;
+      userData.referral_count = Referral.referralCount || 0;
+    }
+    
+    // Текущий скин
+    if (typeof Skins !== 'undefined') {
+      userData.current_skin = Skins.current || 'classic';
+    }
+    
+    // Тема
+    if (typeof UI !== 'undefined') {
+      userData.theme = UI.currentTheme || 'dark';
+    }
+    
+    // Музыка
+    if (typeof Music !== 'undefined') {
+      userData.music_enabled = Music.enabled || false;
     }
     
     this.client

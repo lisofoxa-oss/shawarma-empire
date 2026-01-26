@@ -945,25 +945,20 @@ var Game = {
     // Автопроизводство
     setInterval(function() {
       var eventMult = (typeof Events !== 'undefined') ? Events.getProductionMultiplier() : 1;
-      var production = (self.state.perSecond / 10) * eventMult;
+      var boostMult = (typeof Currency !== 'undefined') ? Currency.getBoostMultiplier() : 1;
+      var production = (self.state.perSecond / 10) * eventMult * boostMult;
       self.state.shawarmas += production;
       self.state.totalShawarmas += production;
       self.state.lifetimeShawarmas += production;
     }, 100);
     
-    // Обновление UI
+    // ФУНДАМЕНТ: Обновление UI и кнопок КАЖДУЮ СЕКУНДУ
     setInterval(function() {
       if (typeof UI !== 'undefined') {
         UI.updateCounters();
+        UI.updateButtonStates(); // ОБЯЗАТЕЛЬНО каждую секунду!
       }
     }, 1000);
-    
-    // Обновление кнопок
-    setInterval(function() {
-      if (typeof UI !== 'undefined') {
-        UI.updateButtonStates();
-      }
-    }, 2000);
     
     // Обновление достижений (если открыта вкладка)
     setInterval(function() {
