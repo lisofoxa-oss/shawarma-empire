@@ -913,7 +913,19 @@ var Game = {
   switchTab: function(tab) {
     this.state.currentTab = tab;
     if (typeof UI !== 'undefined') {
-      UI.render(true);
+      // Обновляем только контент таба и активную кнопку, не перерисовываем всё
+      UI.forceUpdateTab();
+      
+      // Обновляем активные кнопки табов
+      var tabBtns = document.querySelectorAll('[data-action="switch-tab"]');
+      for (var i = 0; i < tabBtns.length; i++) {
+        var btn = tabBtns[i];
+        if (btn.dataset.tab === tab) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      }
     }
   },
   

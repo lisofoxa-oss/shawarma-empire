@@ -512,16 +512,17 @@ var UI = {
     modal.className = 'modal-overlay';
     modal.id = 'skins-modal';
     
-    var html = '<div class="modal-content" style="max-height:80vh;overflow-y:auto;">' +
-      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">' +
+    // Убираем жёсткое ограничение высоты, позволяем контенту определять размер
+    var html = '<div class="modal-content" style="max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;">' +
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-shrink:0;">' +
         '<button data-action="back-to-menu" class="back-btn">←</button>' +
         '<div class="modal-title" style="margin-bottom:0;flex:1;">🎨 Коллекция скинов</div>' +
         '<button data-action="close-all" class="close-btn">✕</button>' +
       '</div>' +
-      '<div style="text-align:center;margin-bottom:12px;color:var(--text-secondary);font-size:0.85rem;">' +
+      '<div style="text-align:center;margin-bottom:12px;color:var(--text-secondary);font-size:0.85rem;flex-shrink:0;">' +
         'Разблокировано: ' + Skins.unlocked.length + ' / ' + Skins.list.length +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">';
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;flex:1;align-content:start;">';
     
     for (var i = 0; i < Skins.list.length; i++) {
       var skin = Skins.list[i];
@@ -532,14 +533,14 @@ var UI = {
         ? (isCurrent ? 'border:2px solid var(--primary);background:rgba(255,107,53,0.15);' : 'border:1px solid var(--border-color);cursor:pointer;')
         : 'border:1px solid var(--border-color);opacity:0.4;cursor:pointer;';
       
-      html += '<div class="skin-card" data-skin="' + skin.id + '" style="padding:8px;border-radius:10px;text-align:center;background:var(--bg-card);overflow:hidden;' + cardStyle + '">' +
-        '<div style="font-size:2rem;">' + (isUnlocked ? skin.emoji : '🔒') + '</div>' +
-        '<div style="font-size:0.7rem;font-weight:700;margin-top:2px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + skin.name + '</div>' +
-        (isCurrent ? '<div style="font-size:0.55rem;color:var(--primary);margin-top:2px;">✓</div>' : '') +
+      html += '<div class="skin-card" data-skin="' + skin.id + '" style="padding:10px;border-radius:12px;text-align:center;background:var(--bg-card);overflow:hidden;' + cardStyle + '">' +
+        '<div style="font-size:2.2rem;">' + (isUnlocked ? skin.emoji : '🔒') + '</div>' +
+        '<div style="font-size:0.7rem;font-weight:700;margin-top:4px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + skin.name + '</div>' +
+        (isCurrent ? '<div style="font-size:0.6rem;color:var(--primary);margin-top:2px;">✓ выбран</div>' : '') +
       '</div>';
     }
     
-    html += '</div><button class="modal-btn secondary" data-action="back-to-menu" style="margin-top:12px;">← Назад</button></div>';
+    html += '</div><button class="modal-btn secondary" data-action="back-to-menu" style="margin-top:16px;flex-shrink:0;">← Назад</button></div>';
     
     modal.innerHTML = html;
     document.body.appendChild(modal);
@@ -909,6 +910,17 @@ var UI = {
       return state.currentTab === t ? 'tab-btn active' : 'tab-btn';
     };
     
+    // Получаем текущий скин
+    var currentSkinEmoji = '🌯';
+    if (typeof Skins !== 'undefined' && Skins.current) {
+      for (var sk = 0; sk < Skins.list.length; sk++) {
+        if (Skins.list[sk].id === Skins.current) {
+          currentSkinEmoji = Skins.list[sk].emoji;
+          break;
+        }
+      }
+    }
+    
     // Частицы фона
     var particles = '';
     for (var p = 0; p < 12; p++) {
@@ -958,7 +970,7 @@ var UI = {
             '<div class="shawarma-glow"></div>' +
             '<div class="orbit-ring orbit-ring-1"></div>' +
             '<div class="orbit-ring orbit-ring-2"></div>' +
-            '<button id="shawarma-btn" data-action="click-shawarma" class="shawarma-btn">🌯</button>' +
+            '<button id="shawarma-btn" data-action="click-shawarma" class="shawarma-btn">' + currentSkinEmoji + '</button>' +
           '</div>' +
           '<div class="clicker-stats">' +
             'Всего: <span id="counter-total">' + this.formatNumber(state.totalShawarmas) + '</span> · ' +
